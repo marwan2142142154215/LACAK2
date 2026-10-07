@@ -56,9 +56,9 @@ smb-platform/
 - [x] PHASE 10 — Android SMB Lacak (kode lengkap: registration+WebSocket(Socket.IO)+foreground service+boot receiver+capability detection; **build/test fisik BELUM dijalankan sesi ini** — lihat `docs/android-compatibility.md` & DEC-003)
 - [x] PHASE 11 — Heartbeat/reconnect (WS heartbeat jalur utama di AdonisJS, HTTPS fallback di Laravel, DeviceStatusResolver identik 2 sisi, WorkManager recovery Android — backend 7 test lolos, Android belum dijalankan fisik)
 - [x] PHASE 12 — Command broker (create+dispatch+ack lifecycle, idempotency, anti wrong-device, forward-only state machine, auto-expire — 13 test baru, 66 test backend total lolos)
-- [x] PHASE 13 — Lock/unlock (DeviceLockController, status LOCKED/restore otomatis, Android LockActivity Device Owner-aware — 73 test backend lolos)
+- [x] PHASE 13 — Lock/unlock (DeviceLockController, status LOCKED/restore otomatis, Android LockActivity Device Owner-aware)
+- [x] PHASE 14 — OTP unlock self-service (hashed, single-use, attempt-limited, rate-limited, dispatch UNLOCK otomatis — 8 test baru, 81 test backend total: 59 Laravel + 22 Adonis)
 - [x] PHASE 21 — Server Launcher Windows (`.exe` C#/.NET 8 asli, startup/health/shutdown teruji end-to-end di mesin dev — dikerjakan lebih awal atas permintaan eksplisit; lihat `smb-server-launcher/README.md`)
-- [ ] PHASE 14 — OTP
 - [ ] PHASE 15 — Location
 - [ ] PHASE 16 — Camera
 - [ ] PHASE 17 — Vue Dashboard

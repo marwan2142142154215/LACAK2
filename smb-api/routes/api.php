@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
 use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
 use App\Http\Controllers\Api\V1\DeviceLockController;
+use App\Http\Controllers\Api\V1\DeviceOtpController;
 use App\Http\Controllers\Api\V1\DeviceRegistrationController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\RegistrationCodeController;
@@ -53,6 +54,11 @@ Route::prefix('v1')->group(function () {
     Route::post('/devices/heartbeat', [DeviceHeartbeatController::class, 'store'])
         ->middleware(['device.auth', 'throttle:device-heartbeat']);
 
+    // PHASE 14 — OTP unlock self-service (§24). PUBLIK & rate-limited dengan sengaja —
+    // satu-satunya gate adalah OTP itu sendiri (hashed, attempt-limited, single-use).
+    Route::post('/devices/{device}/otp/verify', [DeviceOtpController::class, 'verify'])
+        ->middleware('throttle:device-otp-verify');
+
     // PHASE 6 — RBAC: Sites & Teams, digerbangi permission (§40), bukan hanya sembunyikan menu
     // di FE — authorize() di controller/FormRequest menegakkannya di server (§14).
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
@@ -72,5 +78,8 @@ Route::prefix('v1')->group(function () {
         // PHASE 13 — Lock/Unlock (§23/§24), wrapper tipis di atas command broker.
         Route::post('/devices/{device}/lock', [DeviceLockController::class, 'lock']);
         Route::post('/devices/{device}/unlock', [DeviceLockController::class, 'unlock']);
+
+        // PHASE 14 — admin generate OTP (§24).
+        Route::post('/devices/{device}/otp', [DeviceOtpController::class, 'store']);
     });
 });

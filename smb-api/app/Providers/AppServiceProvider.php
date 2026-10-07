@@ -76,6 +76,18 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by((string) $request->input('device_id').'|'.$request->ip());
         });
 
+        // §24/§56/§57: verifikasi OTP dibatasi ketat per device+IP — satu-satunya "gate"
+        // endpoint ini adalah OTP itu sendiri, jadi brute force online harus dipersulit
+        // di sini SELAIN attempt_count yang tersimpan per-OTP di DB.
+        RateLimiter::for('device-otp-verify', function ($request) {
+            // CATATAN: $request->route('device') di titik ini MASIH string mentah dari URL,
+            // BELUM diresolve jadi model Device — SubstituteBindings middleware jalan
+            // SETELAH throttle di pipeline global Laravel. Memanggil ->id di sini meledak
+            // (ditemukan lewat test nyata, bukan asumsi). Pakai string-nya langsung saja,
+            // cukup sebagai pembeda per-device untuk rate limiting.
+            return Limit::perMinute(10)->by((string) $request->route('device').'|'.$request->ip());
+        });
+
         // API umum per user/device yang sudah terautentikasi.
         RateLimiter::for('api', function ($request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());

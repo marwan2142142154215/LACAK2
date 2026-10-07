@@ -68,6 +68,17 @@ Status (`ONLINE`/`DEGRADED`/`OFFLINE`/`UNKNOWN`) dihitung server-side dari `last
 
 Status command: `PENDING→QUEUED→SENT→DELIVERED→RECEIVED→EXECUTING→SUCCESS|FAILED`, atau `EXPIRED`/`CANCELLED` dari status non-terminal manapun. Command terjadwal `smb:expire-stale-commands` (tiap menit) menandai `EXPIRED` command yang lewat `expires_at` tapi belum terminal (§21). Detail lengkap mekanisme anti wrong-device & state machine di `docs/websocket.md`.
 
+## Lock/Unlock & OTP (PHASE 13/14)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| POST | `/devices/{device}/lock` | permission `devices.lock` | Membuat command `LOCK` (pesan default "Segera kembali ke tempat asal anda"). 422 kalau device sudah `LOCKED`. |
+| POST | `/devices/{device}/unlock` | permission `devices.unlock` | Membuat command `UNLOCK` — kanal Master/Dashboard langsung, SAH tanpa OTP (§24). |
+| POST | `/devices/{device}/otp` | permission `devices.unlock` | Admin generate OTP 6-digit (expiry 5 menit, max 5 percobaan). **Kode plaintext hanya tampil sekali di response ini.** |
+| POST | `/devices/{device}/otp/verify` | **publik**, throttle `device-otp-verify` | `{code}` → kalau valid, dispatch `UNLOCK` otomatis & OTP langsung invalid (single-use). Salah → `401` + sisa percobaan. Habis percobaan → `422` (kode benar pun ditolak). Kedaluwarsa/tidak ada OTP aktif → `422`/`404`. |
+
+Device status `LOCKED` diset otomatis oleh AdonisJS saat command `LOCK` benar2 `SUCCESS` (bukan saat command baru dibuat) — lihat `docs/websocket.md`.
+
 ## Health (PHASE 3/4/7)
 
 | Method | Path | Keterangan |
