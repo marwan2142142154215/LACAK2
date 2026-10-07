@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
 use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
+use App\Http\Controllers\Api\V1\DeviceLockController;
 use App\Http\Controllers\Api\V1\DeviceRegistrationController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\RegistrationCodeController;
@@ -67,5 +68,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/devices/{device}/commands', [DeviceCommandController::class, 'index']);
         Route::post('/devices/{device}/commands', [DeviceCommandController::class, 'store']);
         Route::get('/devices/{device}/commands/{command}', [DeviceCommandController::class, 'show']);
+
+        // PHASE 13 — Lock/Unlock (§23/§24), wrapper tipis di atas command broker.
+        Route::post('/devices/{device}/lock', [DeviceLockController::class, 'lock']);
+        Route::post('/devices/{device}/unlock', [DeviceLockController::class, 'unlock']);
     });
 });

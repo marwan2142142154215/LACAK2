@@ -7,72 +7,32 @@ use App\Http\Requests\Device\StoreDeviceCommandRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Device;
 use App\Models\DeviceCommand;
-use App\Services\GatewayClient;
+use App\Services\DeviceCommandDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class DeviceCommandController extends Controller
 {
-    public function __construct(private GatewayClient $gateway) {}
+    public function __construct(private DeviceCommandDispatcher $dispatcher) {}
 
     /**
-     * POST /api/v1/devices/{device}/commands — §19-22.
-     *
-     * Idempotency (§22): kalau idempotency_key sudah pernah dipakai untuk device yang
-     * SAMA, command LAMA dikembalikan (bukan dibuat ulang) — row lock (`lockForUpdate`)
-     * mencegah race dua request bersamaan dengan key yang sama lolos berdua membuat
-     * command duplikat (unique index di DB adalah jaring pengaman terakhir kalau ini
-     * entah bagaimana terlewat).
+     * POST /api/v1/devices/{device}/commands — §19-22 command generik.
      */
     public function store(StoreDeviceCommandRequest $request, Device $device): JsonResponse
     {
-        $idempotencyKey = $request->input('idempotency_key') ?: (string) Str::uuid();
-
-        $command = DB::transaction(function () use ($request, $device, $idempotencyKey) {
-            $existing = DeviceCommand::query()
-                ->where('device_id', $device->id)
-                ->where('idempotency_key', $idempotencyKey)
-                ->lockForUpdate()
-                ->first();
-
-            if ($existing) {
-                return [$existing, true];
-            }
-
-            $created = DeviceCommand::create([
-                'device_id' => $device->id,
-                'command_type' => $request->input('command_type'),
-                'payload' => $request->input('payload'),
-                'idempotency_key' => $idempotencyKey,
-                'status' => 'PENDING',
-                'created_by_type' => 'USER',
-                'created_by_id' => $request->user()->id,
-                'expires_at' => now()->addSeconds($request->integer('expires_in_seconds', 120)),
-            ]);
-
-            return [$created, false];
-        });
-
-        [$deviceCommand, $wasIdempotentReplay] = $command;
-
-        if (! $wasIdempotentReplay) {
-            activity()
-                ->causedBy($request->user())
-                ->performedOn($deviceCommand)
-                ->withProperties(['device_id' => $device->id, 'command_type' => $deviceCommand->command_type])
-                ->log('device_command_created');
-
-            // §70: kegagalan notify TIDAK membuat request ini gagal — command tetap
-            // valid di DB, hanya pengiriman real-time yang mungkin tertunda.
-            $this->gateway->notifyCommandCreated($deviceCommand->id);
-        }
+        [$command, $wasReplay] = $this->dispatcher->dispatch(
+            $device,
+            $request->input('command_type'),
+            $request->input('payload'),
+            $request->input('idempotency_key'),
+            $request->integer('expires_in_seconds', 120),
+            $request->user(),
+        );
 
         return ApiResponse::success(
-            $wasIdempotentReplay ? 'Command sudah pernah dibuat (idempotent replay).' : 'Command dibuat dan dikirim ke gateway.',
-            $deviceCommand,
-            $wasIdempotentReplay ? 200 : 201,
+            $wasReplay ? 'Command sudah pernah dibuat (idempotent replay).' : 'Command dibuat dan dikirim ke gateway.',
+            $command,
+            $wasReplay ? 200 : 201,
         );
     }
 

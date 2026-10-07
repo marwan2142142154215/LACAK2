@@ -26,4 +26,5 @@
     <string name="copy_device_id">Salin Device ID</string>
     <string name="copied_device_id">Device ID disalin.</string>
     <string name="api_support_note">Minimum Android 8.0 (API 26). Capability kamera/lokasi bergantung pada perangkat, permission, OS, dan policy.</string>
+    <string name="lock_requires_managed_device">Fitur lock penuh (Lock Task Mode) membutuhkan perangkat terkelola (Device Owner). Perangkat ini belum terdaftar sebagai managed device.</string>
 </resources>

@@ -329,6 +329,21 @@ class WebSocketService {
       note,
       actor,
     })
+
+    // §23/§24: status device mengikuti hasil command LOCK/UNLOCK yang benar2 SUKSES
+    // (bukan hanya "command dibuat") — device TIDAK dianggap LOCKED sampai device
+    // sendiri meng-ack SUCCESS (§66 no fake success).
+    if (toStatus === 'SUCCESS' && command.commandType === 'LOCK') {
+      await Device.query().where('id', command.deviceId).update({ status: 'LOCKED' })
+    }
+    if (toStatus === 'SUCCESS' && command.commandType === 'UNLOCK') {
+      const device = await Device.find(command.deviceId)
+      if (device) {
+        await Device.query()
+          .where('id', command.deviceId)
+          .update({ status: resolveDeviceStatus(device.lastHeartbeatAt) })
+      }
+    }
   }
 
   async #createSession(deviceId: string): Promise<DeviceSession> {
