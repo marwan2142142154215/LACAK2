@@ -4,6 +4,25 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-004 — Port Laravel lokal dipindah ke 8010 (bukan 8000)
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 21 (Server Launcher)
+**Status:** FINAL.
+
+### Konteks
+Saat membangun & menguji `smb-server-launcher` (§77 SMB Doctor), health check terhadap `http://127.0.0.1:8000/api/v1/health` melaporkan "OK" — padahal Laravel milik proyek ini **tidak sedang dijalankan**. Diselidiki: port 8000 di mesin dev ini dipakai container Docker proyek lain (`apk-api-1`, sisa sesi sebelumnya, lihat percakapan awal soal container `apk-postgres-1` dkk.) yang **kebetulan** juga mengembalikan HTTP 200 dengan `"success":true` di endpoint health-nya sendiri — bentuk JSON beda, tapi status code sukses yang sama membuat pengecekan sederhana (`response.IsSuccessStatusCode`) salah mengenali itu sebagai Laravel kita.
+
+Ini adalah **false-positive nyata yang ditemukan lewat testing sungguhan** (bukan ditebak) — persis kasus yang coding-standard §66 ("No Fake Implementation") ingin dicegah: men-declare sesuatu "OK" tanpa benar-benar memverifikasi identitasnya.
+
+### Keputusan
+Port dev lokal Laravel dipindah ke **8010** di semua tempat: `smb-api/.env` (`APP_URL`), instruksi `README.md`, `docs/api.md`, `smb-server-launcher/Program.cs`, dan `smb-tracker-android` (`BuildConfig.API_BASE_URL` via `10.0.2.2:8010`). Port 8001 juga terpakai proyek lain — 8010 dipilih sebagai port bebas yang terverifikasi kosong di mesin ini.
+
+### Dampak
+Tidak ada dampak pada logika aplikasi — murni perubahan konfigurasi port. Siapa pun yang men-deploy ke server produksi sendiri (bukan mesin dev ini) bebas memakai port lain/8000 asal tidak bentrok di lingkungan mereka; nilai di `.env` tetap bisa di-override.
+
+---
+
 ## DEC-003 — Android (PHASE 10): kode ditulis lengkap, build/test fisik belum dijalankan sesi ini
 
 **Tanggal:** 2026-10-07

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SmbServerLauncher</AssemblyName>
+    <!-- §32/§33: launcher Windows WAJIB jadi .exe asli yang jalan di console (cmd),
+         bukan script .bat yang menyamar — ini benar-benar dikompilasi, bukan ditulis
+         ulang jadi .exe palsu. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

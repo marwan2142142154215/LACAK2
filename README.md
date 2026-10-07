@@ -56,7 +56,8 @@ smb-platform/
 - [x] PHASE 10 — Android SMB Lacak (kode lengkap: registration+WebSocket(Socket.IO)+foreground service+boot receiver+capability detection; **build/test fisik BELUM dijalankan sesi ini** — lihat `docs/android-compatibility.md` & DEC-003)
 - [x] PHASE 11 — Heartbeat/reconnect (WS heartbeat jalur utama di AdonisJS, HTTPS fallback di Laravel, DeviceStatusResolver identik 2 sisi, WorkManager recovery Android — backend 7 test lolos, Android belum dijalankan fisik)
 - [x] PHASE 12 — Command broker (create+dispatch+ack lifecycle, idempotency, anti wrong-device, forward-only state machine, auto-expire — 13 test baru, 66 test backend total lolos)
-- [ ] PHASE 13 — Lock/unlock
+- [x] PHASE 13 — Lock/unlock (DeviceLockController, status LOCKED/restore otomatis, Android LockActivity Device Owner-aware — 73 test backend lolos)
+- [x] PHASE 21 — Server Launcher Windows (`.exe` C#/.NET 8 asli, startup/health/shutdown teruji end-to-end di mesin dev — dikerjakan lebih awal atas permintaan eksplisit; lihat `smb-server-launcher/README.md`)
 - [ ] PHASE 14 — OTP
 - [ ] PHASE 15 — Location
 - [ ] PHASE 16 — Camera
@@ -84,7 +85,7 @@ cd smb-api
 composer install
 cp .env.example .env && php artisan key:generate
 php artisan migrate --seed
-php artisan serve
+php artisan serve --port=8010
 ```
 
 ```bash
@@ -93,7 +94,17 @@ npm install
 node ace serve
 ```
 
-Verifikasi: `curl http://127.0.0.1:8000/api/v1/health` dan `curl http://127.0.0.1:3334/health`.
+> Port 8010 (bukan default 8000) sengaja — lihat `docs/DECISIONS.md` DEC-004: 8000 bentrok
+> dengan service lain yang mungkin berjalan di 127.0.0.1 pada mesin dev.
+
+Atau pakai launcher (PHASE 21) yang mengecek & menjalankan semuanya sekaligus:
+```bash
+cd smb-server-launcher
+dotnet run
+```
+Mode cek-saja tanpa menjalankan apa pun (§77 SMB Doctor): `dotnet run -- doctor`.
+
+Verifikasi: `curl http://127.0.0.1:8010/api/v1/health` dan `curl http://127.0.0.1:3334/health`.
 
 Test:
 ```bash

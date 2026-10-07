@@ -18,7 +18,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Default dev lokal — di-override per build variant untuk production (PHASE 20/24).
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")
+        // Port 8010 (BUKAN 8000) sengaja — lihat DEC-004 di docs/DECISIONS.md: 8000 bentrok
+        // dengan container Docker proyek lain di mesin dev yang kebetulan punya health
+        // endpoint mirip, menyebabkan false-positive saat testing.
+        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8010\"")
         buildConfigField("String", "WS_URL", "\"ws://10.0.2.2:3334\"")
     }
 
@@ -30,7 +33,7 @@ android {
         }
         debug {
             // 10.0.2.2 = alias loopback host-machine standar emulator Android (§ testing lokal).
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8010\"")
             buildConfigField("String", "WS_URL", "\"ws://10.0.2.2:3334\"")
         }
     }

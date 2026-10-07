@@ -1,6 +1,6 @@
 # SMB — API Reference (Laravel, `smb-api`)
 
-Base URL lokal: `http://127.0.0.1:8000/api/v1`. Production: `https://api.lacaksmbbot.com/api/v1`.
+Base URL lokal: `http://127.0.0.1:8010/api/v1` (bukan 8000 — lihat DEC-004). Production: `https://api.lacaksmbbot.com/api/v1`.
 
 Format response standar (§36):
 ```json
