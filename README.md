@@ -38,18 +38,19 @@ smb-platform/
 | Vue | 3.x |
 | Kotlin | 1.9+ |
 | Android minSdk / targetSdk / compileSdk | 26 / 36 / 36 |
-| PostgreSQL | 16.x |
-| Redis | 7.x |
+| PostgreSQL | 17.x (Docker lokal, port 5433 — lihat `docker-compose.yml`) |
+| Redis | 7.x (Docker lokal, port 6380) |
+| AdonisJS | 6.18 (Node 24) |
 
 ## Status pembangunan (per PHASE §74)
 
 - [x] PHASE 1 — Architecture (dokumen ini + `docs/architecture.md`, `docs/DECISIONS.md`)
-- [ ] PHASE 2 — Database
-- [ ] PHASE 3 — Laravel
-- [ ] PHASE 4 — Authentication
-- [ ] PHASE 5 — 2FA
-- [ ] PHASE 6 — RBAC
-- [ ] PHASE 7 — AdonisJS
+- [x] PHASE 2 — Database (27 migration, lihat `docs/database.md`)
+- [x] PHASE 3 — Laravel (scaffold, Docker infra lokal)
+- [x] PHASE 4 — Authentication (API login, sessions, 10 test)
+- [x] PHASE 5 — 2FA (16 test)
+- [x] PHASE 6 — RBAC (Sites/Teams CRUD gated by permission, 24 test)
+- [x] PHASE 7 — AdonisJS (scaffold, health check, internal auth middleware, 5 test)
 - [ ] PHASE 8 — WebSocket
 - [ ] PHASE 9 — Device registration
 - [ ] PHASE 10 — Android SMB Lacak
@@ -70,9 +71,35 @@ smb-platform/
 
 Setiap PHASE harus BUILD → TEST → VERIFY → DOCUMENT sebelum lanjut ke PHASE berikutnya (lihat §74/§81 spesifikasi asli). Tidak ada fase yang dinyatakan selesai tanpa itu.
 
-## Development
+## Development (lokal)
 
-Belum ada kode (PHASE 2 ke atas belum dimulai). Instruksi instalasi lokal akan ditambahkan mulai PHASE 3 (Laravel) dan PHASE 7 (AdonisJS).
+Prasyarat: PHP 8.3+, Composer, Node 24 LTS, Docker Desktop.
+
+```bash
+docker compose up -d
+```
+
+```bash
+cd smb-api
+composer install
+cp .env.example .env && php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
+
+```bash
+cd smb-gateway
+npm install
+node ace serve
+```
+
+Verifikasi: `curl http://127.0.0.1:8000/api/v1/health` dan `curl http://127.0.0.1:3334/health`.
+
+Test:
+```bash
+cd smb-api && php artisan test
+cd smb-gateway && node ace test
+```
 
 ## Lisensi & kepatuhan
 
