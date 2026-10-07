@@ -1,0 +1,61 @@
+# Local development infrastructure for SMB platform.
+# NOT for production (§62) — production runs on the Windows server via smb-server-launcher
+# with PostgreSQL/Redis as proper services, documented in docs/deployment.md (PHASE 24).
+#
+# Ports are offset from defaults (5433/6380) because this host already runs unrelated
+# Postgres/Redis containers from another project on 5432/6379.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: smb-platform-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smb_local
+      POSTGRES_USER: smb_local
+      POSTGRES_PASSWORD: smb_local_dev_only
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - smb_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smb_local -d smb_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres_test:
+    image: postgres:17-alpine
+    container_name: smb-platform-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smb_testing
+      POSTGRES_USER: smb_local
+      POSTGRES_PASSWORD: smb_local_dev_only
+    ports:
+      - "127.0.0.1:5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smb_local -d smb_testing"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: smb-platform-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - smb_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  smb_postgres_data:
+  smb_redis_data:

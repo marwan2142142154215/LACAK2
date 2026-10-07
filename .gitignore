@@ -38,6 +38,9 @@ local.properties
 cloudflare/*.json
 !cloudflare/config.example.yml
 
+# Docker local dev volumes (data, bukan kode)
+# (volume dikelola Docker sendiri di luar working dir, tidak ada file untuk di-ignore di sini)
+
 # OS / editor
 .DS_Store
 Thumbs.db

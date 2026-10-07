@@ -99,6 +99,22 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        // Database testing terpisah secara fisik (container/port berbeda, §62) — dipakai
+        // Pest via phpunit.xml / .env.testing, bukan koneksi 'pgsql' yang sama dengan dev.
+        'pgsql_testing' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_TEST_HOST', '127.0.0.1'),
+            'port' => env('DB_TEST_PORT', '5434'),
+            'database' => env('DB_TEST_DATABASE', 'smb_testing'),
+            'username' => env('DB_TEST_USERNAME', 'smb_local'),
+            'password' => env('DB_TEST_PASSWORD', 'smb_local_dev_only'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
