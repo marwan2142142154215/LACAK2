@@ -88,6 +88,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by((string) $request->route('device').'|'.$request->ip());
         });
 
+        // §29: webhook Telegram dipanggil server Telegram (bukan per-user) — limit generous
+        // per-IP cukup untuk menahan penyalahgunaan tanpa menolak traffic webhook normal.
+        RateLimiter::for('telegram-webhook', function ($request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
         // API umum per user/device yang sudah terautentikasi.
         RateLimiter::for('api', function ($request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());

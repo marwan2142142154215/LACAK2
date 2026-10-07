@@ -21,6 +21,15 @@ class DeviceCommandDispatcher
     /**
      * @return array{0: DeviceCommand, 1: bool} [$command, $wasIdempotentReplay]
      */
+    /**
+     * @param User $user Pengguna yang permission-nya dipakai untuk audit log (activity()->causedBy),
+     *                    SELALU user manusia asli meski command datang lewat Telegram (§30) —
+     *                    bot tidak punya identitas/permission sendiri, hanya meneruskan milik user.
+     * @param string $createdByType 'USER' (dashboard/API langsung) atau 'TELEGRAM' (lewat bot, §29/§30).
+     * @param string|null $createdById ID entity pemicu sesuai $createdByType. Default $user->id untuk
+     *                                  'USER'. WAJIB diisi (telegram_account_id) untuk 'TELEGRAM' supaya
+     *                                  audit trail bisa membedakan command dari dashboard vs bot.
+     */
     public function dispatch(
         Device $device,
         string $commandType,
@@ -28,10 +37,13 @@ class DeviceCommandDispatcher
         ?string $idempotencyKey,
         int $expiresInSeconds,
         User $user,
+        string $createdByType = 'USER',
+        ?string $createdById = null,
     ): array {
         $idempotencyKey = $idempotencyKey ?: (string) Str::uuid();
+        $createdById ??= $user->id;
 
-        [$command, $wasReplay] = DB::transaction(function () use ($device, $commandType, $payload, $idempotencyKey, $expiresInSeconds, $user) {
+        [$command, $wasReplay] = DB::transaction(function () use ($device, $commandType, $payload, $idempotencyKey, $expiresInSeconds, $createdByType, $createdById) {
             $existing = DeviceCommand::query()
                 ->where('device_id', $device->id)
                 ->where('idempotency_key', $idempotencyKey)
@@ -48,8 +60,8 @@ class DeviceCommandDispatcher
                 'payload' => $payload,
                 'idempotency_key' => $idempotencyKey,
                 'status' => 'PENDING',
-                'created_by_type' => 'USER',
-                'created_by_id' => $user->id,
+                'created_by_type' => $createdByType,
+                'created_by_id' => $createdById,
                 'expires_at' => now()->addSeconds($expiresInSeconds),
             ]);
 

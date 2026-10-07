@@ -18,6 +18,9 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\RegistrationCodeController;
 use App\Http\Controllers\Api\V1\SiteController;
 use App\Http\Controllers\Api\V1\TeamController;
+use App\Http\Controllers\Api\V1\TelegramAccountController;
+use App\Http\Controllers\Api\V1\TelegramWebhookController;
+use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
 // §36: seluruh API berada di bawah /api/v1
@@ -62,6 +65,13 @@ Route::prefix('v1')->group(function () {
     Route::post('/devices/{device}/otp/verify', [DeviceOtpController::class, 'verify'])
         ->middleware('throttle:device-otp-verify');
 
+    // PHASE 18 — webhook Telegram (§29). PUBLIK dengan sengaja — "otorisasi" endpoint ini
+    // adalah secret token di header (dicek di controller), BUKAN Sanctum (server Telegram
+    // tidak punya token kita). Permission RBAC tetap ditegakkan per-command di dalam
+    // TelegramCommandHandler terhadap user yang telegram_account-nya APPROVED (§30).
+    Route::post('/telegram/webhook', TelegramWebhookController::class)
+        ->middleware('throttle:telegram-webhook');
+
     // PHASE 6 — RBAC: Sites & Teams, digerbangi permission (§40), bukan hanya sembunyikan menu
     // di FE — authorize() di controller/FormRequest menegakkannya di server (§14).
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
@@ -103,5 +113,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/devices/{device}/camera/request', [DeviceCameraController::class, 'request']);
         Route::get('/devices/{device}/media', [DeviceCameraController::class, 'index']);
         Route::get('/devices/{device}/media/{media}/url', [DeviceCameraController::class, 'url']);
+
+        // PHASE 18 — admin kelola akun Telegram yang minta tautan (§29/§30, permission telegram.manage).
+        Route::get('/telegram/accounts', [TelegramAccountController::class, 'index']);
+        Route::post('/telegram/accounts/{account}/approve', [TelegramAccountController::class, 'approve']);
+        Route::post('/telegram/accounts/{account}/revoke', [TelegramAccountController::class, 'revoke']);
+
+        // PHASE 18 — daftar user minimal untuk picker "tautkan ke user" di UI approve Telegram.
+        Route::get('/users', [UserController::class, 'index']);
     });
 });

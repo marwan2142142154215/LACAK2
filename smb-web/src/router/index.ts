@@ -39,6 +39,12 @@ const router = createRouter({
           component: () => import('@/views/TeamsView.vue'),
           meta: { permission: 'teams.manage' },
         },
+        {
+          path: 'telegram',
+          name: 'telegram',
+          component: () => import('@/views/TelegramView.vue'),
+          meta: { permission: 'telegram.manage' },
+        },
       ],
     },
   ],

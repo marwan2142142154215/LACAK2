@@ -249,6 +249,22 @@ Unique `(scope_type, scope_id, policy_key)`.
 | approved_at | timestamp nullable | |
 | created_at, updated_at | | |
 
+## 15b. `telegram_command_confirmations` (ditambahkan PHASE 18, tidak ada di desain awal §-numbered)
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| telegram_account_id | uuid FK -> telegram_accounts.id, cascadeOnDelete | |
+| device_id | uuid FK -> devices.id, cascadeOnDelete | |
+| command_type | varchar(30) | LOCK/UNLOCK/LOCATION_REQUEST |
+| payload | jsonb nullable | payload command yang akan dibuat setelah confirm (mis. pesan LOCK) |
+| code_hash | varchar(255) | HASHED, tidak pernah plaintext |
+| expires_at | timestamp | 5 menit sejak dibuat |
+| attempt_count, max_attempts | smallint | default 0 / 3 |
+| used_at | timestamp nullable | single-use |
+| created_at | timestamp (useCurrent, tanpa updated_at) | |
+
+Index `(telegram_account_id, expires_at)`. Lihat `docs/api.md` bagian Telegram Bot untuk catatan jujur soal step-up ini (confirm-before-execute, bukan MFA independen).
+
 ## 16. `audit_logs`
 Disediakan otomatis oleh **Spatie Activity Log** (tabel `activity_log`) — dicatat untuk semua event §41. Tidak didesain ulang manual; dikonfigurasi di PHASE 3 untuk meng-log model `User`, `Device`, `DeviceCommand`, dsb, plus custom log call untuk event non-model (login, OTP, Telegram command).
 

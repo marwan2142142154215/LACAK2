@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { LayoutDashboard, Smartphone, Building2, Users, LogOut, ShieldCheck } from '@lucide/vue'
+import { LayoutDashboard, Smartphone, Building2, Users, LogOut, ShieldCheck, Send } from '@lucide/vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -11,6 +11,7 @@ const navItems = [
   { to: { name: 'devices' }, label: 'Device', icon: Smartphone, permission: 'devices.view' },
   { to: { name: 'sites' }, label: 'Site', icon: Building2, permission: 'sites.manage' },
   { to: { name: 'teams' }, label: 'Tim', icon: Users, permission: 'teams.manage' },
+  { to: { name: 'telegram' }, label: 'Telegram', icon: Send, permission: 'telegram.manage' },
 ]
 
 async function onLogout() {

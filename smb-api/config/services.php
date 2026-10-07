@@ -41,4 +41,10 @@ return [
         'secret' => env('GATEWAY_INTERNAL_SECRET'),
     ],
 
+    // §29/§30: Telegram Bot — jangan commit nilai asli.
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
 ];

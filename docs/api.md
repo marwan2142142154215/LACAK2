@@ -99,6 +99,20 @@ Device status `LOCKED` diset otomatis oleh AdonisJS saat command `LOCK` benar2 `
 
 Device upload **langsung** ke Spaces (tidak lewat Laravel/AdonisJS) memakai presigned URL tersebut, lalu ack `SUCCESS` dengan metadata (`mime_type`, `size_bytes`, `sha256_hash`, `captured_at`) — AdonisJS menulis baris `device_media` menggabungkan payload command (storage_path/camera_facing) + metadata dari ack. Kalau device tidak punya kamera yang diminta atau izin ditolak, ack `FAILED` dengan alasan jujur (`CAMERA_UNAVAILABLE` dkk, §69) — tidak ada baris media yang ditulis.
 
+## Telegram Bot (PHASE 18, §29/§30)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| POST | `/telegram/webhook` | **publik**, secret via header `X-Telegram-Bot-Api-Secret-Token` (bukan Sanctum), throttle `telegram-webhook` | Dipanggil server Telegram. Diteruskan ke `TelegramCommandHandler` yang memproses perintah teks (`/start`, `/status`, `/devices`, `/lock`, `/unlock`, `/location`, `/confirm`, `/camera` — lihat `docs/websocket.md` atau kode untuk daftar lengkap). Balasan dikirim ASYNC lewat `TelegramBotClient::sendMessage`, bukan di response HTTP. |
+| GET | `/telegram/accounts` | permission `telegram.manage` | Daftar akun Telegram yang pernah /start, paginated, filter `?status=` |
+| POST | `/telegram/accounts/{account}/approve` | permission `telegram.manage` | `{user_id, step_up_required?}` — menautkan akun Telegram ke user sistem & permission RBAC-nya. **Tanpa approve, akun TIDAK bisa menjalankan perintah device apa pun** (§30, default status `PENDING`). |
+| POST | `/telegram/accounts/{account}/revoke` | permission `telegram.manage` | Mencabut akses — command melalui bot langsung ditolak lagi setelah ini |
+| GET | `/users` | permission `users.manage` | Daftar user aktif minimal (nama/email/role) — dipakai picker "tautkan ke user" di UI approve Telegram (PHASE 18); bukan user management penuh |
+
+**Model otorisasi**: bot tidak punya identitas/permission sendiri. Setiap perintah device lewat Telegram memakai permission user yang telegram_account-nya `APPROVED` (`devices.lock`/`devices.unlock`/`devices.location`), dicek persis sama seperti lewat dashboard — tidak ada bypass (§7/§16/§27, DEC-001).
+
+**Step-up confirmation** (`telegram_command_confirmations`, kode 6 digit hashed, 5 menit, maks 3 percobaan): command `LOCK`/`UNLOCK`/`LOCATION_REQUEST` TIDAK langsung dibuat saat user mengetik perintahnya — baru benar2 di-dispatch via `DeviceCommandDispatcher` setelah `/confirm <kode>` cocok (kecuali akun diset `step_up_required=false` oleh admin saat approve). **Catatan jujur**: ini pola *confirm-before-execute* (mencegah command sensitif terkirim dari satu ketikan yang tidak sengaja), BUKAN MFA faktor kedua independen — kode ditampilkan di chat yang sama. `/camera` SENGAJA belum didukung lewat Telegram (presigned upload URL Spaces & logika kamera tidak cocok dialihkan ke sini begitu saja) — bot membalas honest limitation message, bukan pura-pura berhasil.
+
 ## Health (PHASE 3/4/7)
 
 | Method | Path | Keterangan |
