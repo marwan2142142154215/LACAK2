@@ -1,14 +1,18 @@
 <?php
 
+use App\Http\Middleware\AuthenticateDeviceCredential;
 use App\Http\Responses\ApiResponse;
-use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
@@ -30,13 +34,21 @@ return Application::configure(basePath: dirname(__DIR__))
         // nyata di browser (login dari localhost:5173 ditolak "CSRF token mismatch"), bukan lewat
         // Pest (Pest tidak mengirim header Origin/Referer jadi tidak kena jalur ini sama sekali).
 
+        // §100/§131: aplikasi berjalan DI BELAKANG Cloudflare Tunnel (cloudflared lokal,
+        // PHASE 20) — satu-satunya sumber koneksi inbound yang mungkin adalah proses
+        // cloudflared di loopback. Percaya loopback sebagai proxy supaya header
+        // CF-Connecting-IP/X-Forwarded-For dari Cloudflare bisa dipakai NetworkPolicyEvaluator
+        // untuk tahu IP client ASLI — TANPA ini, $request->ip() akan selalu "127.0.0.1" untuk
+        // SEMUA device (tidak berguna untuk IP whitelist §97-102).
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         // Spatie Laravel Permission (§40) — alias middleware tidak lagi auto-register di Laravel 11+.
         $middleware->alias([
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'role' => RoleMiddleware::class,
+            'permission' => PermissionMiddleware::class,
+            'role_or_permission' => RoleOrPermissionMiddleware::class,
             // §43: autentikasi device (bukan Sanctum user) untuk endpoint HTTPS fallback (§45).
-            'device.auth' => \App\Http\Middleware\AuthenticateDeviceCredential::class,
+            'device.auth' => AuthenticateDeviceCredential::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

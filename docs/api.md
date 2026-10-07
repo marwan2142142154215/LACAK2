@@ -119,6 +119,20 @@ Device upload **langsung** ke tujuan storage (tidak lewat business logic Laravel
 
 **Step-up confirmation** (`telegram_command_confirmations`, kode 6 digit hashed, 5 menit, maks 3 percobaan): command `LOCK`/`UNLOCK`/`LOCATION_REQUEST` TIDAK langsung dibuat saat user mengetik perintahnya — baru benar2 di-dispatch via `DeviceCommandDispatcher` setelah `/confirm <kode>` cocok (kecuali akun diset `step_up_required=false` oleh admin saat approve). **Catatan jujur**: ini pola *confirm-before-execute* (mencegah command sensitif terkirim dari satu ketikan yang tidak sengaja), BUKAN MFA faktor kedua independen — kode ditampilkan di chat yang sama. `/camera` SENGAJA belum didukung lewat Telegram (presigned upload URL Spaces & logika kamera tidak cocok dialihkan ke sini begitu saja) — bot membalas honest limitation message, bukan pura-pura berhasil.
 
+## Network Policy & Monitoring (§90-109, ditambahkan sesi PHASE 24)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| GET | `/sites/{site}/network-policies` | permission `network.manage` | Daftar whitelist jaringan (IP/CIDR) milik Site |
+| POST | `/sites/{site}/network-policies` | permission `network.manage` | `{network_type: IP\|CIDR, value, description?}` — tambah entri whitelist |
+| PATCH | `/sites/{site}/network-policies/{policy}` | permission `network.manage` | Update entri (termasuk `is_active` untuk nonaktifkan sementara tanpa hapus) |
+| DELETE | `/sites/{site}/network-policies/{policy}` | permission `network.manage` | Soft-delete entri |
+| GET | `/network-violations` | permission `network.view` | Monitor pelanggaran jaringan — filter `status=open\|resolved\|all` (default `open`), `site_id`, `device_id` |
+
+**Evaluasi** (`App\Services\NetworkPolicyEvaluator` / `#services/network_policy_evaluator.ts`, port identik PHP↔Node) berjalan di **KEDUA** jalur heartbeat — HTTPS fallback (Laravel, §45) dan WebSocket (AdonisJS, jalur utama §6) — setiap heartbeat dievaluasi, bukan hanya salah satu. IP client ASLI diambil dari header `CF-Connecting-IP` (diset Cloudflare edge, server trust loopback sebagai proxy karena app berjalan di belakang Cloudflare Tunnel, §100) — fallback ke IP socket langsung kalau header itu tidak ada (misal akses lokal tanpa tunnel).
+
+Site **tanpa** policy terkonfigurasi = `ALLOWED` (default-open, §131 — IP whitelist bukan satu-satunya mekanisme keamanan, device credential + site binding tetap wajib). Pelanggaran dicatat sebagai satu row "episode" di `device_network_violations` (dedup: heartbeat berulang dari IP yang sama TIDAK membuat alert berulang, §105) sampai device heartbeat dari IP yang diizinkan lagi (`resolved_at` diisi). Alert Telegram dikirim sekali per episode ke semua `telegram_accounts` yang `APPROVED`.
+
 ## Health (PHASE 3/4/7)
 
 | Method | Path | Keterangan |

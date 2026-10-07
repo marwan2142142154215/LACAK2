@@ -16,8 +16,10 @@ use App\Http\Controllers\Api\V1\DeviceMediaTransferController;
 use App\Http\Controllers\Api\V1\DeviceOtpController;
 use App\Http\Controllers\Api\V1\DeviceRegistrationController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\NetworkViolationController;
 use App\Http\Controllers\Api\V1\RegistrationCodeController;
 use App\Http\Controllers\Api\V1\SiteController;
+use App\Http\Controllers\Api\V1\SiteNetworkPolicyController;
 use App\Http\Controllers\Api\V1\TeamController;
 use App\Http\Controllers\Api\V1\TelegramAccountController;
 use App\Http\Controllers\Api\V1\TelegramWebhookController;
@@ -89,6 +91,13 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::apiResource('sites', SiteController::class);
         Route::apiResource('teams', TeamController::class);
+
+        // §90-109 — Network Policy (whitelist per Site) & Network Monitoring.
+        Route::get('/sites/{site}/network-policies', [SiteNetworkPolicyController::class, 'index']);
+        Route::post('/sites/{site}/network-policies', [SiteNetworkPolicyController::class, 'store']);
+        Route::patch('/sites/{site}/network-policies/{policy}', [SiteNetworkPolicyController::class, 'update']);
+        Route::delete('/sites/{site}/network-policies/{policy}', [SiteNetworkPolicyController::class, 'destroy']);
+        Route::get('/network-violations', [NetworkViolationController::class, 'index']);
 
         // PHASE 17 — resource dasar Device (§36/§48). /overview WAJIB didaftarkan SEBELUM
         // apiResource('devices', ...) — kalau tidak, route {device} akan mencoba

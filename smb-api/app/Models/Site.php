@@ -30,6 +30,11 @@ class Site extends Model
         return $this->hasMany(Team::class);
     }
 
+    public function networkPolicies(): HasMany
+    {
+        return $this->hasMany(SiteNetworkPolicy::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

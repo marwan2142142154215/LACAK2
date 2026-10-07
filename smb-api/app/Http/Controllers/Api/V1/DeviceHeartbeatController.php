@@ -8,6 +8,8 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Device;
 use App\Models\DeviceHeartbeat;
 use App\Services\DeviceStatusResolver;
+use App\Services\NetworkPolicyEvaluator;
+use App\Services\NetworkViolationTracker;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -16,7 +18,11 @@ use Illuminate\Http\JsonResponse;
  */
 class DeviceHeartbeatController extends Controller
 {
-    public function __construct(private DeviceStatusResolver $statusResolver) {}
+    public function __construct(
+        private DeviceStatusResolver $statusResolver,
+        private NetworkPolicyEvaluator $networkPolicy,
+        private NetworkViolationTracker $violationTracker,
+    ) {}
 
     public function store(DeviceHeartbeatRequest $request): JsonResponse
     {
@@ -40,9 +46,15 @@ class DeviceHeartbeatController extends Controller
 
         $status = $this->statusResolver->resolve($receivedAt);
 
+        // §97-109: evaluasi jaringan SETIAP heartbeat — jalur server-side, bukan klaim device.
+        $observedIp = $this->networkPolicy->resolveObservedIp($request);
+        $networkStatus = $this->networkPolicy->evaluate($device, $observedIp);
+        $this->violationTracker->record($device, $networkStatus, $observedIp);
+
         $device->forceFill([
             'last_heartbeat_at' => $receivedAt,
             'status' => $status,
+            'last_seen_ip' => $observedIp,
             'app_version' => $request->input('app_version', $device->app_version),
             'android_version' => $request->input('android_version', $device->android_version),
         ])->save();
@@ -50,6 +62,7 @@ class DeviceHeartbeatController extends Controller
         return ApiResponse::success('Heartbeat diterima.', [
             'accepted' => true,
             'status' => $status,
+            'network_status' => $networkStatus->value,
             'server_received_at' => $receivedAt->toIso8601String(),
         ]);
     }

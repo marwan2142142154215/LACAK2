@@ -40,4 +40,9 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // --- Device session token signing (§43 — device WAJIB authenticated, bukan device_id saja)
   DEVICE_TOKEN_SECRET: Env.schema.string(),
+
+  // --- Telegram alert (§104/§109 — network violation). OPSIONAL dengan sengaja: kalau
+  // kosong, alert di-skip dengan log honest (bukan error fatal) — sama seperti perilaku
+  // App\Services\TelegramBotClient di Laravel (§66/§69).
+  TELEGRAM_BOT_TOKEN: Env.schema.string.optional(),
 })

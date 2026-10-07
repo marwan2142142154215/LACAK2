@@ -40,6 +40,8 @@ import DeviceMedia from '#models/device_media'
 import DeviceSession from '#models/device_session'
 import { DEGRADED_THRESHOLD_SECONDS, resolveDeviceStatus } from '#services/device_status_resolver'
 import { isValidDeviceAckTransition } from '#services/command_status_transition'
+import { evaluateNetworkPolicy, resolveObservedIp } from '#services/network_policy_evaluator'
+import { recordNetworkViolation } from '#services/network_violation_tracker'
 
 /**
  * §43/§44 — Device Gateway WebSocket.
@@ -165,7 +167,10 @@ class WebSocketService {
         return next(new Error('Kredensial device tidak ditemukan atau sudah dicabut.'))
       }
 
-      const valid = await bcrypt.compare(secret, normalizeBcryptHashForNode(credential.credentialHash))
+      const valid = await bcrypt.compare(
+        secret,
+        normalizeBcryptHashForNode(credential.credentialHash)
+      )
       if (!valid) {
         logger.warn({ deviceId }, 'device.auth.rejected: secret mismatch')
         return next(new Error('Device secret tidak valid.'))
@@ -203,17 +208,19 @@ class WebSocketService {
 
       socket.on('disconnect', (reason) => this.#handleDisconnect(socket, reason))
       socket.on('device.heartbeat', (payload: DeviceHeartbeatPayload) =>
-        this.#handleHeartbeat(socket, deviceId, payload),
+        this.#handleHeartbeat(socket, deviceId, payload)
       )
       socket.on('device.command.ack', (payload: DeviceCommandAckPayload) =>
-        this.#handleCommandAck(deviceId, payload),
+        this.#handleCommandAck(deviceId, payload)
       )
     } catch (error) {
       // §70: kalau ada kegagalan SETELAH handshake diterima (misal DB down saat create
       // session), tetap beri sinyal jelas ke client lalu putus — jangan dibiarkan "connected"
       // secara diam-diam padahal server gagal mencatatnya.
       logger.error({ err: error, deviceId }, 'device.connection.error')
-      socket.emit('connection.error', { message: 'Terjadi kesalahan internal setelah autentikasi.' })
+      socket.emit('connection.error', {
+        message: 'Terjadi kesalahan internal setelah autentikasi.',
+      })
       socket.disconnect(true)
     }
   }
@@ -246,23 +253,46 @@ class WebSocketService {
 
       const status = resolveDeviceStatus(receivedAt)
 
-      await Device.query().where('id', deviceId).update({
-        last_heartbeat_at: receivedAt.toSQL(),
-        status,
-        ...(payload.app_version ? { app_version: payload.app_version } : {}),
-        ...(payload.android_version ? { android_version: payload.android_version } : {}),
-      })
+      // §97-109: evaluasi jaringan di jalur UTAMA heartbeat (bukan hanya HTTPS fallback,
+      // §45) — mayoritas device terhubung lewat WS, jadi deteksi violation TIDAK boleh
+      // hanya ada di sisi Laravel saja (lihat DeviceHeartbeatController.php untuk versi
+      // PHP yang identik perilakunya, dan docs/DECISIONS.md untuk kronologi fitur ini).
+      const device = await Device.query().where('id', deviceId).first()
+      const observedIp = resolveObservedIp(
+        socket.handshake.headers as Record<string, string | string[] | undefined>,
+        socket.handshake.address
+      )
+      let networkStatus: Awaited<ReturnType<typeof evaluateNetworkPolicy>> = 'UNKNOWN'
+      if (device) {
+        networkStatus = await evaluateNetworkPolicy(device, observedIp)
+        await recordNetworkViolation(device, networkStatus, observedIp)
+      }
+
+      await Device.query()
+        .where('id', deviceId)
+        .update({
+          last_heartbeat_at: receivedAt.toSQL(),
+          status,
+          ...(observedIp ? { last_seen_ip: observedIp } : {}),
+          ...(payload.app_version ? { app_version: payload.app_version } : {}),
+          ...(payload.android_version ? { android_version: payload.android_version } : {}),
+        })
 
       await this.#setPresence(deviceId)
 
       socket.emit('device.heartbeat.ack', {
         accepted: true,
         status,
+        network_status: networkStatus,
         server_received_at: receivedAt.toISO(),
       })
     } catch (error) {
       logger.error({ err: error, deviceId }, 'device.heartbeat.error')
-      socket.emit('device.heartbeat.ack', { accepted: false, status: 'UNKNOWN', server_received_at: null })
+      socket.emit('device.heartbeat.ack', {
+        accepted: false,
+        status: 'UNKNOWN',
+        server_received_at: null,
+      })
     }
   }
 
@@ -293,7 +323,9 @@ class WebSocketService {
 
     // §21: ikat command ke device_session yang SEDANG aktif — validasi anti wrong-device
     // saat ack datang membandingkan ke sesi ini, bukan device_id saja.
-    const activeSession = [...this.#connections.values()].find((c) => c.deviceId === command.deviceId)
+    const activeSession = [...this.#connections.values()].find(
+      (c) => c.deviceId === command.deviceId
+    )
 
     this.io.to(`device:${command.deviceId}`).emit('device.command.created', {
       command_id: command.id,
@@ -307,7 +339,7 @@ class WebSocketService {
       'SENT',
       'GATEWAY',
       'Dikirim via WebSocket',
-      activeSession?.deviceSessionId,
+      activeSession?.deviceSessionId
     )
 
     logger.info({ commandId, deviceId: command.deviceId }, 'device.command.sent')
@@ -330,16 +362,29 @@ class WebSocketService {
     // walau tahu command_id-nya (device_id diambil dari socket.data yang sudah
     // diautentikasi di io.use(), bukan dari payload yang bisa dipalsukan client).
     if (command.deviceId !== deviceId) {
-      logger.warn({ commandId, deviceId, actualOwner: command.deviceId }, 'device.command.ack REJECTED: wrong device')
+      logger.warn(
+        { commandId, deviceId, actualOwner: command.deviceId },
+        'device.command.ack REJECTED: wrong device'
+      )
       return
     }
 
     if (!isValidDeviceAckTransition(command.status, status as any)) {
-      logger.warn({ commandId, deviceId, from: command.status, to: status }, 'device.command.ack REJECTED: invalid transition')
+      logger.warn(
+        { commandId, deviceId, from: command.status, to: status },
+        'device.command.ack REJECTED: invalid transition'
+      )
       return
     }
 
-    await this.#transitionCommand(command, status as any, 'DEVICE', payload.failure_reason ?? null, undefined, payload.result)
+    await this.#transitionCommand(
+      command,
+      status as any,
+      'DEVICE',
+      payload.failure_reason ?? null,
+      undefined,
+      payload.result
+    )
     logger.info({ commandId, deviceId, status }, 'device.command.ack')
   }
 
@@ -349,7 +394,7 @@ class WebSocketService {
     actor: 'DEVICE' | 'GATEWAY' | 'SYSTEM',
     note: string | null,
     deviceSessionId?: string,
-    result?: DeviceCommandAckPayload['result'],
+    result?: DeviceCommandAckPayload['result']
   ) {
     const fromStatus = command.status
     const now = DateTime.now()

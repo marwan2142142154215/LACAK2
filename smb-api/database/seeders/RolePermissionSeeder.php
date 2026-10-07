@@ -23,14 +23,14 @@ class RolePermissionSeeder extends Seeder
             'devices.view', 'devices.create', 'devices.update', 'devices.delete',
             'devices.lock', 'devices.unlock', 'devices.location', 'devices.camera', 'devices.command',
             'sites.manage', 'teams.manage', 'users.manage', 'telegram.manage',
-            'audit.view', 'settings.manage',
+            'audit.view', 'settings.manage', 'network.manage', 'network.view',
         ],
         'OPERATOR' => [
             'devices.view', 'devices.lock', 'devices.unlock',
-            'devices.location', 'devices.camera', 'devices.command',
+            'devices.location', 'devices.camera', 'devices.command', 'network.view',
         ],
         'VIEWER' => [
-            'devices.view', 'audit.view',
+            'devices.view', 'audit.view', 'network.view',
         ],
     ];
 
@@ -41,7 +41,7 @@ class RolePermissionSeeder extends Seeder
         'devices.view', 'devices.create', 'devices.update', 'devices.delete',
         'devices.lock', 'devices.unlock', 'devices.location', 'devices.camera', 'devices.command',
         'sites.manage', 'teams.manage', 'users.manage', 'telegram.manage',
-        'audit.view', 'settings.manage',
+        'audit.view', 'settings.manage', 'network.manage', 'network.view',
     ];
 
     public function run(): void

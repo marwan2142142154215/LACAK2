@@ -4,6 +4,35 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-010 — Network Policy/IP Whitelist (§90-109) dibangun ulang di sesi ini setelah ditemukan pekerjaan lokal belum di-push di PC pemilik produk
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 24 (tindak lanjut setelah setup Cloudflare Tunnel live)
+**Status:** FINAL untuk baseline fitur — alerting Web/Master realtime (§104, push langsung ke UI) belum diimplementasikan, hanya Telegram.
+
+### Konteks
+Saat memverifikasi Cloudflare Tunnel yang baru disetup (DEC-007/PHASE 20) benar2 hidup, ditemukan: PC pemilik produk menjalankan repo di 3 folder terpisah dengan 3 remote GitHub BERBEDA (`LACAK1`/`LACAK2`/`LACAK3` — sisa sesi-sesi sebelumnya dengan tool berbeda), dan folder yang terhubung ke `LACAK2` (repo yang dikerjakan sesi ini) **7 commit ketinggalan** dari `origin/main` DAN punya pekerjaan lokal belum di-commit yang membangun fitur Network Policy/IP Whitelist (§90-109) + versi lain dari storage abstraction — keduanya tidak pernah di-push ke GitHub.
+
+Pemilik produk sedang pergi sebentar saat ini ditemukan. Memaksa `git pull`/`git stash pop` di working tree yang sedang menjalankan server LIVE (sudah terbukti hidup lewat Cloudflare Tunnel, health check sukses) TANPA pemilik produk bisa mengawasi hasilnya berisiko merusak demo yang sedang berjalan kalau terjadi conflict (file PHP dengan conflict marker bisa menyebabkan 500 di request berikutnya). Alih-alih mencoba merekonsiliasi kode yang belum pernah dilihat isinya lewat relay command-line satu-satu (rawan salah, lambat, dan TIDAK bisa diverifikasi test di sesi ini karena berjalan di PC orang lain), fitur ini **dibangun ulang dari nol di sesi GitHub ini** — konsisten dengan kode yang sudah ada, teruji penuh, dan tidak menyentuh apa pun yang sedang berjalan di PC pemilik produk.
+
+### Keputusan
+1. Implementasi PHP (Laravel, `App\Services\NetworkPolicyEvaluator` + `NetworkViolationTracker`) DAN port TypeScript identik perilakunya (AdonisJS, `#services/network_policy_evaluator.ts` + `#services/network_violation_tracker.ts`) — dievaluasi di **kedua** jalur heartbeat (HTTPS fallback §45 DAN WebSocket jalur utama §6), bukan hanya satu, karena mayoritas device terhubung lewat WS.
+2. IP client asli diambil dari header `CF-Connecting-IP` (Cloudflare edge) — `bootstrap/app.php` dikonfigurasi `trustProxies(at: ['127.0.0.1', '::1'])` karena aplikasi berjalan di belakang Cloudflare Tunnel lokal (§100) — tanpa ini `$request->ip()` akan selalu "127.0.0.1" untuk semua device, membuat whitelist IP tidak berguna.
+3. Site tanpa policy terkonfigurasi = default-open (`ALLOWED`), bukan `BLOCKED` diam-diam (§66/§131 — restriksi harus eksplisit diatur admin).
+4. Dedup pelanggaran via satu row "episode" per device (`resolved_at IS NULL` = masih terbuka) dengan row lock (`lockForUpdate`/`forUpdate`) untuk aman dari dua heartbeat (WS + HTTPS fallback) nyaris bersamaan — konsisten dengan pola idempotency command broker (§21-22, PHASE 12).
+5. Alert Telegram (§104/§109) — ditambahkan Node-side `telegram_bot_client.ts` (port tipis dari `TelegramBotClient.php`) karena AdonisJS tidak pernah punya klien Telegram sendiri sebelumnya; env var `TELEGRAM_BOT_TOKEN` baru di `smb-gateway/.env`, opsional (skip jujur kalau kosong, §69).
+6. Push realtime ke Web Dashboard/SMB Master (§104, bukan cuma Telegram) **belum diimplementasikan** — dicatat sebagai keterbatasan, bukan diklaim ada. Monitor endpoint (`GET /network-violations`) sudah cukup untuk polling manual oleh FE yang belum dibangun.
+
+### Hasil terverifikasi
+- Laravel: 18 test baru (7 evaluator + 6 violation/dedup/alert + 5 CRUD policy), total 123/123 lolos.
+- AdonisJS: 2 test baru (default-open, dedup BLOCKED lewat WS), total 29/29 lolos.
+- `tsc --noEmit` + `eslint` bersih di kedua sisi.
+
+### Tindak lanjut untuk pemilik produk
+Folder lokal "apk claude" (`C:\Users\ACE COMPUTER\Documents\apk claude`) masih berisi pekerjaan belum di-commit (lihat riwayat chat sesi ini untuk daftar file lengkap). **Aman** untuk `git stash` lalu `git pull origin main` di folder itu kapan pun siap (server yang sedang jalan tetap aman — proses PHP yang sudah berjalan tidak otomatis reload source sampai request berikutnya/restart). Pekerjaan storage abstraction lokal yang lama BISA dibuang (sudah digantikan versi yang lebih lengkap dari sesi ini, DEC-007) — tapi backup dulu (`git stash` TIDAK menghapus, hanya menyimpan) sebelum memutuskan.
+
+---
+
 ## DEC-009 — `smb-gateway`: ganti `bcryptjs` → `bcrypt` native (ditemukan lewat load test PHASE 24, PLUS bug kompatibilitas `$2y$` yang ketemu & diperbaiki sebelum sempat jadi regresi produksi)
 
 **Tanggal:** 2026-10-07

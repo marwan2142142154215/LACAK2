@@ -311,6 +311,35 @@ Unique `(app_name, version_code)`.
 
 Dikonfigurasi lewat `system_settings` (key: `retention.heartbeat_days`, `retention.location_days`, `retention.command_log_days`, `retention.audit_days`, `retention.media_days`), dieksekusi oleh scheduled job Laravel (`php artisan schedule:run` — dibuat di PHASE 3) yang menghapus (soft delete lalu hard-delete setelah grace period) data melewati batas retensi. Default awal: heartbeat 30 hari, location 90 hari, command log 180 hari, audit 365 hari, media 90 hari — dapat diubah admin via dashboard tanpa deploy ulang.
 
+## 14. `site_network_policies` (§98, ditambahkan PHASE 24)
+Whitelist jaringan per Site — Site tanpa row di sini = default-open (§131).
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| site_id | uuid FK -> sites.id, index | |
+| network_type | enum(IP,CIDR) | |
+| value | varchar(100) | IP tunggal atau notasi CIDR |
+| description | varchar(255) nullable | |
+| is_active | boolean default true | |
+| created_by/updated_by | uuid FK -> users.id nullable | |
+| deleted_at | soft delete | |
+
+## 15. `device_network_violations` (§103-106, ditambahkan PHASE 24)
+Satu row per "episode" pelanggaran (NORMAL->VIOLATION->RESOLVED) — BUKAN satu row per heartbeat (§105 anti alert-spam).
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | uuid PK | |
+| device_id | uuid FK -> devices.id, index bareng resolved_at | |
+| site_id | uuid FK -> sites.id | |
+| observed_ip | varchar(45) nullable | |
+| policy_status | enum(BLOCKED,UNKNOWN) | |
+| severity | enum(INFO,WARNING,HIGH,CRITICAL) | |
+| first_seen_at / last_seen_at | timestamp | |
+| alert_sent_at | timestamp nullable | |
+| resolved_at | timestamp nullable | NULL = episode masih terbuka |
+
 ## Index summary (anti N+1 / dashboard filter §48)
 
 - `devices(site_id, team_id, status)`
@@ -321,6 +350,8 @@ Dikonfigurasi lewat `system_settings` (key: `retention.heartbeat_days`, `retenti
 - `device_heartbeats(device_id, received_at)`
 - `device_registration_codes(code_hash)` UNIQUE, `(expires_at)`
 - `telegram_accounts(telegram_id)` UNIQUE
+- `site_network_policies(site_id, is_active)`
+- `device_network_violations(device_id, resolved_at)`, `(site_id, resolved_at)`
 
 ## Catatan migrasi manual (§35)
 
