@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\SiteController;
+use App\Http\Controllers\Api\V1\TeamController;
 use Illuminate\Support\Facades\Route;
 
 // §36: seluruh API berada di bawah /api/v1
@@ -35,9 +37,13 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Rute device-management (sites/teams/devices/commands/dst) ditambahkan progresif
-    // di PHASE 6 (RBAC) dan PHASE 9+ (device registration & command broker) — lihat README.md.
+    // PHASE 6 — RBAC: Sites & Teams, digerbangi permission (§40), bukan hanya sembunyikan menu
+    // di FE — authorize() di controller/FormRequest menegakkannya di server (§14).
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
-        //
+        Route::apiResource('sites', SiteController::class);
+        Route::apiResource('teams', TeamController::class);
+
+        // Rute device-management lainnya (devices/commands/dst) ditambahkan progresif
+        // di PHASE 9+ (device registration & command broker) — lihat README.md.
     });
 });

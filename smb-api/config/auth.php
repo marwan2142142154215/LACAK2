@@ -15,8 +15,12 @@ return [
     |
     */
 
+    // Default guard = 'sanctum' (bukan 'web'): seluruh sistem ini API-first, diautentikasi
+    // via token Sanctum (§3/§14). Spatie Permission mencocokkan guard_name role/permission
+    // terhadap Auth::getDefaultDriver() — kalau dibiarkan 'web', semua hasRole()/can() akan
+    // selalu false karena role/permission kita di-seed dengan guard_name 'sanctum'.
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
+        'guard' => env('AUTH_GUARD', 'sanctum'),
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
@@ -40,6 +44,17 @@ return [
     'guards' => [
         'web' => [
             'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        // Didaftarkan secara dinamis oleh SanctumServiceProvider via Auth::viaRequest(), TIDAK
+        // butuh entry ini untuk berfungsi SEBAGAI GUARD. Tapi Spatie\Permission\Guard::getNames()
+        // menentukan guard mana yang valid untuk model User dengan men-scan config('auth.guards')
+        // mencari provider yang modelnya User::class — tanpa entry ini, Spatie tidak pernah
+        // menganggap 'sanctum' sebagai guard valid untuk User dan diam-diam fallback ke 'web',
+        // membuat SEMUA pengecekan hasRole()/can() selalu gagal walau defaults.guard='sanctum'.
+        'sanctum' => [
+            'driver' => 'sanctum',
             'provider' => 'users',
         ],
     ],

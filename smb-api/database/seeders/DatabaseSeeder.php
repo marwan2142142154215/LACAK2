@@ -2,24 +2,22 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
+     *
+     * CATATAN: tidak ada factory User/dummy data di sini secara sengaja (§66 no fake data
+     * sebagai pengganti produksi). Hanya seed struktural (role & permission) yang WAJIB ada
+     * di setiap environment. Super admin pertama dibuat manual via `php artisan tinker` atau
+     * command khusus saat deployment (didokumentasikan di docs/deployment.md, PHASE 24).
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            RolePermissionSeeder::class,
         ]);
     }
 }

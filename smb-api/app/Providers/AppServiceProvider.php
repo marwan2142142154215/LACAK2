@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,6 +24,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerRateLimiters();
+
+        // §40: SUPER_ADMIN melewati seluruh permission check — termasuk permission baru
+        // yang ditambahkan nanti tanpa perlu re-seed role ini (RolePermissionSeeder tetap
+        // memberi SUPER_ADMIN semua permission yang ADA saat seed, ini jaring pengaman
+        // tambahan untuk permission yang ditambahkan setelahnya).
+        Gate::before(function (User $user, string $ability) {
+            return $user->hasRole('SUPER_ADMIN') ? true : null;
+        });
     }
 
     /**
