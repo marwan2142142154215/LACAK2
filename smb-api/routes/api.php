@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
+use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
 use App\Http\Controllers\Api\V1\DeviceRegistrationController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\RegistrationCodeController;
@@ -44,6 +45,11 @@ Route::prefix('v1')->group(function () {
     // dengan sengaja.
     Route::post('/devices/register', [DeviceRegistrationController::class, 'store'])
         ->middleware('throttle:device-registration');
+
+    // PHASE 11 — HTTPS heartbeat fallback (§45). Device-authenticated (bukan Sanctum),
+    // lihat AuthenticateDeviceCredential.
+    Route::post('/devices/heartbeat', [DeviceHeartbeatController::class, 'store'])
+        ->middleware(['device.auth', 'throttle:device-heartbeat']);
 
     // PHASE 6 — RBAC: Sites & Teams, digerbangi permission (§40), bukan hanya sembunyikan menu
     // di FE — authorize() di controller/FormRequest menegakkannya di server (§14).

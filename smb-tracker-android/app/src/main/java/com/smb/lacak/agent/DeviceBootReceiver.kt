@@ -13,9 +13,7 @@ class DeviceBootReceiver : BroadcastReceiver() {
 
         val preferences = AgentStatusStore(context)
         if (runCatching { DeviceCredentialStore(context).load() }.getOrNull() == null) return
-        // DeviceRecoveryWork (WorkManager periodic/immediate recovery) ditambahkan PHASE 11
-        // bersama endpoint heartbeat — boot receiver tetap mencoba start foreground service
-        // langsung di bawah ini (§B boot recovery), WorkManager jadi lapisan tambahan nanti.
+        DeviceRecoveryWork.enqueueImmediate(context)
 
         if (!preferences.autoReconnectEnabled()) return
         try {

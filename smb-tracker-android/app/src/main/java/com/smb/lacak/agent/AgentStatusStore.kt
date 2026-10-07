@@ -3,6 +3,7 @@ package com.smb.lacak.agent
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.edit
+import org.json.JSONObject
 import java.time.Instant
 
 data class AgentStatus(
@@ -46,8 +47,7 @@ class AgentStatusStore(context: Context) {
         preferences.edit { putBoolean(KEY_AUTO_RECONNECT, enabled) }
     }
 
-    // heartbeatJson() ditambahkan PHASE 11 bersama DeviceHeartbeatPayload & endpoint
-    // heartbeat Laravel yang sesuai — belum ada di PHASE 10 (§66 no fake implementation).
+    fun heartbeatJson(context: Context): JSONObject = DeviceHeartbeatPayload.create(context)
 
     companion object {
         const val PREFERENCES = "smb_lacak_agent_status"

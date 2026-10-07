@@ -3,6 +3,7 @@ package com.smb.lacak.data.network
 import com.smb.lacak.BuildConfig
 import com.smb.lacak.data.security.StoredDeviceCredential
 import com.smb.lacak.device.DeviceCapabilities
+// StoredDeviceCredential dipakai sebagai parameter sendHttpsHeartbeat()
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -19,6 +20,12 @@ data class DeviceRegistration(
     val manufacturer: String,
     val model: String,
     val capabilities: DeviceCapabilities,
+)
+
+data class HeartbeatResult(
+    val accepted: Boolean,
+    val status: String,
+    val serverReceivedAt: String,
 )
 
 class SmbApiException(message: String, val statusCode: Int? = null) : IOException(message)
@@ -56,6 +63,26 @@ class SmbApiClient(
             deviceId = data.getString("device_id"),
             publicTokenId = data.getString("public_token_id"),
             deviceSecret = data.getString("device_secret"),
+        )
+    }
+
+    /**
+     * POST /api/v1/devices/heartbeat (§45 HTTPS fallback — jalur utama tetap WebSocket).
+     * Device-authenticated dengan credential penuh (device_id+public_token_id+device_secret),
+     * BUKAN Bearer token Sanctum — pola sama dengan handshake WebSocket (§43).
+     */
+    fun sendHttpsHeartbeat(credential: StoredDeviceCredential, heartbeat: JSONObject): HeartbeatResult {
+        val payload = JSONObject(heartbeat.toString())
+            .put("device_id", credential.deviceId)
+            .put("public_token_id", credential.publicTokenId)
+            .put("device_secret", credential.deviceSecret)
+        val response = post("/api/v1/devices/heartbeat", payload)
+        val data = response.optJSONObject("data")
+            ?: throw SmbApiException("Response heartbeat server tidak lengkap.")
+        return HeartbeatResult(
+            accepted = data.optBoolean("accepted", false),
+            status = data.optString("status", "UNKNOWN"),
+            serverReceivedAt = data.optString("server_received_at", ""),
         )
     }
 

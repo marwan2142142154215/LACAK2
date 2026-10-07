@@ -25,6 +25,15 @@ import com.smb.lacak.presentation.MainActivity
 import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.engineio.client.transports.WebSocket as EngineWebSocket
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URI
 
@@ -35,15 +44,16 @@ import java.net.URI
  * DITAMBAH ConnectivityManager.NetworkCallback untuk memicu reconnect secepatnya saat
  * jaringan pulih (§D/§F) — bukan menunggu timer backoff saja.
  *
- * Heartbeat APPLICATION-LEVEL (payload battery/network/dst, §6) ditambahkan PHASE 11
- * begitu endpoint Laravel-nya ada. Socket.IO sendiri sudah punya ping/pong transport-level
- * (keep-alive bawaan), jadi koneksi tetap terdeteksi putus tanpa itu — tapi status
- * ONLINE/DEGRADED/OFFLINE versi SERVER (§6) baru akurat penuh setelah PHASE 11.
+ * §6 (PHASE 11): heartbeat APPLICATION-LEVEL dikirim periodik lewat socket selama
+ * terhubung (jalur utama). Saat socket putus, DeviceRecoveryWork mengambil alih via
+ * WorkManager + HTTPS fallback (§45) sampai socket tersambung lagi.
  */
 class DeviceAgentService : Service() {
     private val credentialStore by lazy { DeviceCredentialStore(this) }
     private val statusStore by lazy { AgentStatusStore(this) }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var socket: Socket? = null
+    private var heartbeatJob: Job? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -87,6 +97,7 @@ class DeviceAgentService : Service() {
     override fun onDestroy() {
         unregisterNetworkCallback()
         disconnectSocket("service_destroyed")
+        scope.cancel()
         super.onDestroy()
     }
 
@@ -133,6 +144,16 @@ class DeviceAgentService : Service() {
             val data = args.firstOrNull() as? JSONObject
             statusStore.write("ONLINE", "Terhubung ke smb-gateway (device_id=${data?.optString("device_id") ?: credential.deviceId}).")
             AgentLogger.info(credential.deviceId, "device.connected received from gateway.")
+            startHeartbeatLoop(newSocket, credential)
+        }
+        newSocket.on("device.heartbeat.ack") { args ->
+            val data = args.firstOrNull() as? JSONObject
+            val serverStatus = data?.optString("status", "UNKNOWN") ?: "UNKNOWN"
+            if (data?.optBoolean("accepted", false) == true) {
+                statusStore.write(serverStatus, "Heartbeat WebSocket diterima server (${data.optString("server_received_at", "")}).")
+            } else {
+                statusStore.write("DEGRADED", "Server mengabaikan heartbeat; menunggu siklus berikutnya.")
+            }
         }
         newSocket.on("device.disconnected") { args ->
             val data = args.firstOrNull() as? JSONObject
@@ -142,11 +163,16 @@ class DeviceAgentService : Service() {
             val message = (args.firstOrNull() as? Exception)?.message ?: "Autentikasi WebSocket ditolak."
             statusStore.write("DEGRADED", "Koneksi gateway ditolak: $message")
             AgentLogger.warn(credential.deviceId, "connect_error: $message")
+            // §45: WS gagal -> pastikan heartbeat tetap jalan lewat HTTPS fallback.
+            DeviceRecoveryWork.enqueueImmediate(this@DeviceAgentService)
         }
         newSocket.on(Socket.EVENT_DISCONNECT) { args ->
+            heartbeatJob?.cancel()
             val reason = args.firstOrNull()?.toString() ?: "unknown"
             if (reason != "io client disconnect") {
                 statusStore.write("DEGRADED", "Koneksi ke gateway terputus ($reason); socket.io-client akan mencoba ulang otomatis.")
+                // §45/§F: selama WS belum tersambung ulang, HTTPS fallback mengisi kekosongan.
+                DeviceRecoveryWork.enqueueImmediate(this@DeviceAgentService)
             }
         }
 
@@ -155,12 +181,33 @@ class DeviceAgentService : Service() {
     }
 
     private fun disconnectSocket(reason: String) {
+        heartbeatJob?.cancel()
         socket?.let {
             AgentLogger.info(null, "Disconnecting socket: $reason")
             it.disconnect()
             it.off()
         }
         socket = null
+    }
+
+    /**
+     * §6: heartbeat berjalan SELAMA socket terhubung, berhenti otomatis saat socket
+     * putus (dicek via `socket === this.socket && socket.connected()` tiap iterasi —
+     * guard ganda supaya tidak ada dua loop heartbeat jalan bersamaan kalau reconnect
+     * terjadi cepat).
+     */
+    private fun startHeartbeatLoop(targetSocket: Socket, credential: StoredDeviceCredential) {
+        heartbeatJob?.cancel()
+        heartbeatJob = scope.launch {
+            while (isActive && socket === targetSocket && targetSocket.connected()) {
+                val payload = withContext(Dispatchers.IO) {
+                    DeviceHeartbeatPayload.create(this@DeviceAgentService)
+                }
+                targetSocket.emit("device.heartbeat", payload)
+                AgentLogger.info(credential.deviceId, "WebSocket heartbeat sent.", payload.optString("request_id"))
+                delay(HEARTBEAT_INTERVAL_MS)
+            }
+        }
     }
 
     private fun registerNetworkCallback() {
@@ -219,6 +266,7 @@ class DeviceAgentService : Service() {
         const val ACTION_STOP = "com.smb.lacak.action.STOP_AGENT"
         private const val NOTIFICATION_CHANNEL_ID = "smb_lacak_agent"
         private const val NOTIFICATION_ID = 2601
+        private const val HEARTBEAT_INTERVAL_MS = 30_000L
 
         fun startIntent(context: Context) = Intent(context, DeviceAgentService::class.java)
         fun stopIntent(context: Context) = Intent(context, DeviceAgentService::class.java).setAction(ACTION_STOP)

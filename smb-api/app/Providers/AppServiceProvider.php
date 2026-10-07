@@ -70,6 +70,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
+        // §45/§57: heartbeat HTTPS fallback — device yang WS-nya gagal bisa kirim sering,
+        // tapi tetap dibatasi supaya tidak jadi vektor DoS per-device.
+        RateLimiter::for('device-heartbeat', function ($request) {
+            return Limit::perMinute(20)->by((string) $request->input('device_id').'|'.$request->ip());
+        });
+
         // API umum per user/device yang sudah terautentikasi.
         RateLimiter::for('api', function ($request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());

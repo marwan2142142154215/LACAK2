@@ -7,7 +7,9 @@ import logger from '@adonisjs/core/services/logger'
 import redis from '@adonisjs/redis/services/main'
 import Device from '#models/device'
 import DeviceCredential from '#models/device_credential'
+import DeviceHeartbeat from '#models/device_heartbeat'
 import DeviceSession from '#models/device_session'
+import { DEGRADED_THRESHOLD_SECONDS, resolveDeviceStatus } from '#services/device_status_resolver'
 
 /**
  * §43/§44 — Device Gateway WebSocket.
@@ -33,6 +35,18 @@ interface DeviceAuthPayload {
   device_id?: string
   public_token_id?: string
   device_secret?: string
+}
+
+/** §6: payload heartbeat dari device. Field opsional — client tidak selalu bisa
+ * membaca semuanya (izin ditolak dsb.) dan itu dilaporkan jujur sebagai null, bukan
+ * dipalsukan nilai default yang menyesatkan. */
+interface DeviceHeartbeatPayload {
+  battery_level?: number | null
+  network_type?: string | null
+  connection_state?: string | null
+  app_version?: string | null
+  android_version?: string | null
+  recorded_at?: string | null
 }
 
 interface SocketData {
@@ -136,6 +150,9 @@ class WebSocketService {
       })
 
       socket.on('disconnect', (reason) => this.#handleDisconnect(socket, reason))
+      socket.on('device.heartbeat', (payload: DeviceHeartbeatPayload) =>
+        this.#handleHeartbeat(socket, deviceId, payload),
+      )
     } catch (error) {
       // §70: kalau ada kegagalan SETELAH handshake diterima (misal DB down saat create
       // session), tetap beri sinyal jelas ke client lalu putus — jangan dibiarkan "connected"
@@ -143,6 +160,54 @@ class WebSocketService {
       logger.error({ err: error, deviceId }, 'device.connection.error')
       socket.emit('connection.error', { message: 'Terjadi kesalahan internal setelah autentikasi.' })
       socket.disconnect(true)
+    }
+  }
+
+  /**
+   * §6/§44 — jalur UTAMA heartbeat (bukan HTTPS, yang hanya fallback §45). Menulis
+   * device_heartbeats + mengupdate devices.status/last_heartbeat_at langsung (AdonisJS
+   * sudah tersambung ke Postgres yang sama, round-trip lewat Laravel tidak perlu untuk
+   * data berfrekuensi tinggi seperti ini — sesuai pembagian tanggung jawab di
+   * docs/architecture.md).
+   */
+  async #handleHeartbeat(socket: Socket, deviceId: string, payload: DeviceHeartbeatPayload) {
+    try {
+      const receivedAt = DateTime.now()
+      const recordedAt = payload.recorded_at ? DateTime.fromISO(payload.recorded_at) : receivedAt
+
+      await DeviceHeartbeat.create({
+        id: crypto.randomUUID(),
+        deviceId,
+        batteryLevel: payload.battery_level ?? null,
+        networkType: payload.network_type ?? null,
+        connectionState: payload.connection_state ?? null,
+        appVersion: payload.app_version ?? null,
+        androidVersion: payload.android_version ?? null,
+        // recorded_at dari device TIDAK dipakai untuk status (anti clock-skew spoof, §6) —
+        // hanya disimpan untuk audit/debug perbedaan jam device vs server.
+        recordedAt: recordedAt.isValid ? recordedAt : receivedAt,
+        receivedAt,
+      })
+
+      const status = resolveDeviceStatus(receivedAt)
+
+      await Device.query().where('id', deviceId).update({
+        last_heartbeat_at: receivedAt.toSQL(),
+        status,
+        ...(payload.app_version ? { app_version: payload.app_version } : {}),
+        ...(payload.android_version ? { android_version: payload.android_version } : {}),
+      })
+
+      await this.#setPresence(deviceId)
+
+      socket.emit('device.heartbeat.ack', {
+        accepted: true,
+        status,
+        server_received_at: receivedAt.toISO(),
+      })
+    } catch (error) {
+      logger.error({ err: error, deviceId }, 'device.heartbeat.error')
+      socket.emit('device.heartbeat.ack', { accepted: false, status: 'UNKNOWN', server_received_at: null })
     }
   }
 
@@ -163,9 +228,10 @@ class WebSocketService {
   }
 
   async #setPresence(deviceId: string) {
-    // TTL = heartbeat timeout (§6) — dikonfigurasi ulang di PHASE 11 saat heartbeat nyata
-    // berjalan. Untuk sekarang, presence di-refresh tiap connect; expiry murni safety-net.
-    await redis.set(`device:presence:${deviceId}`, '1', 'EX', 120)
+    // TTL = DEGRADED_THRESHOLD_SECONDS (§6) — presence key hidup selama device masih
+    // dianggap minimal "DEGRADED" oleh DeviceStatusResolver; kalau heartbeat berhenti
+    // lebih lama dari itu, key ini expire sendiri tanpa perlu job pembersih terpisah.
+    await redis.set(`device:presence:${deviceId}`, '1', 'EX', DEGRADED_THRESHOLD_SECONDS)
   }
 
   async #handleDisconnect(socket: Socket, reason: string) {

@@ -39,6 +39,8 @@ Alur verifikasi:
 | `device.connected` | server→client | `{device_id, connected_at}` | Autentikasi sukses, device_sessions row dibuat, presence di-set |
 | `device.disconnected` | server→room `device:{id}` | `{device_id, reason}` | Socket putus (alasan dari Socket.IO: `client namespace disconnect`, `transport close`, dst) |
 | `connection.error` | server→client | `{message}` | Gagal SETELAH handshake diterima (misal DB error saat create session) — device tetap diputus, tapi diberi sinyal jelas (§70) |
+| `device.heartbeat` | client→server | `{request_id, recorded_at, battery_level, network_type, connection_state, app_version, android_version}` | §6 — jalur UTAMA heartbeat (bukan HTTPS). Dikirim device tiap 30s selama socket terhubung |
+| `device.heartbeat.ack` | server→client | `{accepted, status, server_received_at}` | Balasan heartbeat — `status` dihitung server dari `DeviceStatusResolver` (identik dengan versi PHP di smb-api, lihat `app/services/device_status_resolver.ts`) |
 
 Event command (`device.command.created`, `.received`, `.executing`, `.success`, `.failed`, dst — §44) ditambahkan di **PHASE 12** (command broker) begitu `device_commands` punya consumer nyata.
 

@@ -50,6 +50,14 @@ Dokumen ini diperluas tiap PHASE menambahkan endpoint baru — bukan ditulis sek
 
 Error khusus device registration: `404` kode tidak ditemukan, `422` kode kedaluwarsa/dicabut/sudah dipakai.
 
+## Device Heartbeat — HTTPS fallback (PHASE 11, §45)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| POST | `/devices/heartbeat` | device credential (`device_id`+`public_token_id`+`device_secret` di body, bukan Sanctum) | Jalur **fallback** — jalur utama heartbeat lewat WebSocket (`device.heartbeat` event, lihat `docs/websocket.md`). `{battery_level?, network_type?, connection_state?, app_version?, android_version?}` → `{accepted, status, server_received_at}` |
+
+Status (`ONLINE`/`DEGRADED`/`OFFLINE`/`UNKNOWN`) dihitung server-side dari `last_heartbeat_at` (§6) — lihat `App\Services\DeviceStatusResolver`. Command terjadwal `smb:recompute-device-statuses` (tiap menit) menurunkan status device yang berhenti heartbeat tanpa menunggu heartbeat baru masuk.
+
 ## Health (PHASE 3/4/7)
 
 | Method | Path | Keterangan |

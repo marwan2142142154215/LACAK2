@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import com.smb.lacak.BuildConfig
 import com.smb.lacak.agent.AgentStatusStore
+import com.smb.lacak.agent.DeviceRecoveryWork
 import com.smb.lacak.data.network.DeviceRegistration
 import com.smb.lacak.data.network.SmbApiClient
 import com.smb.lacak.data.security.DeviceCredentialStore
@@ -40,6 +41,7 @@ class DeviceRepository(context: Context) {
                 error,
             )
         }
+        DeviceRecoveryWork.ensurePeriodic(appContext)
         AgentStatusStore(appContext).write("REGISTERED", "Perangkat terdaftar; mulai koneksi untuk terhubung ke server.")
         return issuedCredential
     }
