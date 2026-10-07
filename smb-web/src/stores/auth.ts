@@ -79,9 +79,21 @@ export const useAuthStore = defineStore('auth', {
       this.user = data.data
     },
 
+    /**
+     * §14/§30: sesi LOKAL harus selalu berhasil terhapus — kalau request revoke token ke
+     * server gagal (network turun, token sudah expired/invalid di server), itu TIDAK boleh
+     * menggagalkan logout dari sisi user (yang sudah ingin keluar). Error ditelan dengan
+     * sengaja SETELAH sesi lokal dibersihkan — pemanggil (mis. AppLayout.vue) tetap bisa
+     * `await` lalu redirect ke /login tanpa perlu try/catch sendiri. Bug nyata yang
+     * ditemukan sebelum fix ini: `await auth.logout()` melempar exception kalau request
+     * gagal, membuat baris `router.push({ name: 'login' })` sesudahnya TIDAK PERNAH
+     * dijalankan — user macet di halaman yang sudah tidak punya token valid.
+     */
     async logout(): Promise<void> {
       try {
         await apiClient.post('/auth/logout')
+      } catch (err) {
+        console.warn('Logout server-side gagal (sesi lokal tetap dihapus):', err)
       } finally {
         this.applySession(null, null)
       }
