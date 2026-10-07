@@ -58,6 +58,16 @@ Error khusus device registration: `404` kode tidak ditemukan, `422` kode kedaluw
 
 Status (`ONLINE`/`DEGRADED`/`OFFLINE`/`UNKNOWN`) dihitung server-side dari `last_heartbeat_at` (§6) — lihat `App\Services\DeviceStatusResolver`. Command terjadwal `smb:recompute-device-statuses` (tiap menit) menurunkan status device yang berhenti heartbeat tanpa menunggu heartbeat baru masuk.
 
+## Device Resource — daftar/detail/rename/hapus (PHASE 17, §36/§48)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| GET | `/devices` | permission `devices.view` | Paginated, filter `?site_id=&team_id=&status=&android_api_level=&search=&per_page=` (max 100), urut `last_heartbeat_at` desc |
+| GET | `/devices/overview` | permission `devices.view` | Kartu ringkasan dashboard: total + jumlah per status (hanya device aktif). **Terdaftar sebelum `/devices/{device}`** supaya tidak tertangkap sebagai ID. |
+| GET | `/devices/{device}` | permission `devices.view` | Detail + site + team |
+| PATCH | `/devices/{device}` | permission `devices.update` | `{name?, is_active?}` — field server-owned (`status`, `last_heartbeat_at`, dst) tidak bisa diubah lewat endpoint ini (dikendalikan AdonisJS/heartbeat, §6) |
+| DELETE | `/devices/{device}` | permission `devices.delete` | Soft delete (§35), bukan hapus permanen |
+
 ## Device Commands — command broker (PHASE 12, permission `devices.command`/`devices.view`)
 
 | Method | Path | Keterangan |
@@ -97,7 +107,7 @@ Device upload **langsung** ke Spaces (tidak lewat Laravel/AdonisJS) memakai pres
 
 ## Rute yang BELUM ada (menyusul per PHASE)
 
-- Device CRUD/detail/lock/unlock/location/camera/command — PHASE 12-16
+- Semua rute Device inti (CRUD, lock/unlock, location, camera, command) sudah ada sejak PHASE 17.
 - User management — ditambahkan saat dibutuhkan (lihat README checklist)
 - Telegram webhook — PHASE 18
 - Reporting/export — menyusul

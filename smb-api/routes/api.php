@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
 use App\Http\Controllers\Api\V1\DeviceCameraController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
+use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
 use App\Http\Controllers\Api\V1\DeviceLocationController;
 use App\Http\Controllers\Api\V1\DeviceLockController;
@@ -66,6 +67,15 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::apiResource('sites', SiteController::class);
         Route::apiResource('teams', TeamController::class);
+
+        // PHASE 17 — resource dasar Device (§36/§48). /overview WAJIB didaftarkan SEBELUM
+        // apiResource('devices', ...) — kalau tidak, route {device} akan mencoba
+        // menangkap "overview" sebagai ID device.
+        Route::get('/devices/overview', [DeviceController::class, 'overview']);
+        Route::get('/devices', [DeviceController::class, 'index']);
+        Route::get('/devices/{device}', [DeviceController::class, 'show']);
+        Route::patch('/devices/{device}', [DeviceController::class, 'update']);
+        Route::delete('/devices/{device}', [DeviceController::class, 'destroy']);
 
         // PHASE 9 — admin generate registration code (§17/§31 Download Center)
         Route::get('/devices/registration-codes', [RegistrationCodeController::class, 'index']);
