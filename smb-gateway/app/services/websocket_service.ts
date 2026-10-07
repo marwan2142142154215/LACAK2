@@ -1,7 +1,32 @@
 import type { Server as HttpServer } from 'node:http'
 import crypto from 'node:crypto'
 import { Server as SocketIOServer, type Socket } from 'socket.io'
-import bcrypt from 'bcryptjs'
+// §41/§72 — PHASE 24 load test menemukan bug performa nyata: `bcryptjs` (pure-JS, tanpa
+// native binding) membuat gateway nyaris berhenti total di bawah beban reconnect storm
+// (§42) — diverifikasi: 99 koneksi bersamaan butuh 35,4 detik, device LAIN yang sudah
+// online ikut tidak dibalas heartbeat-nya sampai 34,8 detik (lihat DEC-009). `bcrypt`
+// native (libuv thread pool, di luar main thread JS) menyelesaikan skenario yang sama
+// dalam 0,24-0,29 detik — ~130x lebih cepat, diverifikasi berulang.
+//
+// PERINGATAN KOMPATIBILITAS yang DITEMUKAN saat verifikasi (bukan diasumsikan!): npm
+// package `bcrypt` v6 TIDAK mengenali prefix `$2y$` (yang dipakai Laravel/PHP) — HANYA
+// `$2a$`/`$2b$`. `bcrypt.compare()` terhadap hash `$2y$...` asli dari Laravel SELALU
+// mengembalikan `false` walau secretnya benar (dites langsung: PHP `Hash::check()` bilang
+// true, Node `bcrypt.compare()` bilang false untuk hash & secret yang SAMA). `$2y$` dan
+// `$2b$` adalah algoritma yang identik secara kriptografis (perbedaan historis murni di
+// string versi, bukan di cara hashing) — normalisasi prefix di `normalizeBcryptHashForNode()`
+// di bawah adalah workaround yang AMAN dan terdokumentasi luas untuk interop PHP<->Node,
+// BUKAN downgrade keamanan.
+import bcrypt from 'bcrypt'
+
+/**
+ * Lihat peringatan kompatibilitas di komentar import `bcrypt` di atas. `$2y$` (PHP) dan
+ * `$2b$` (native Node bcrypt) adalah varian penanda versi yang identik secara kriptografis
+ * — bukan algoritma yang berbeda — jadi substitusi string ini TIDAK melemahkan verifikasi.
+ */
+function normalizeBcryptHashForNode(hash: string): string {
+  return hash.startsWith('$2y$') ? '$2b$' + hash.slice(4) : hash
+}
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import redis from '@adonisjs/redis/services/main'
@@ -140,7 +165,7 @@ class WebSocketService {
         return next(new Error('Kredensial device tidak ditemukan atau sudah dicabut.'))
       }
 
-      const valid = await bcrypt.compare(secret, credential.credentialHash)
+      const valid = await bcrypt.compare(secret, normalizeBcryptHashForNode(credential.credentialHash))
       if (!valid) {
         logger.warn({ deviceId }, 'device.auth.rejected: secret mismatch')
         return next(new Error('Device secret tidak valid.'))

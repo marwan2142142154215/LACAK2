@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client'
 import crypto from 'node:crypto'
-import bcrypt from 'bcryptjs'
+import bcrypt from 'bcrypt'
 import db from '@adonisjs/lucid/services/db'
 import server from '@adonisjs/core/services/server'
 

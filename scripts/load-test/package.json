@@ -1,0 +1,8 @@
+{
+  "name": "smb-load-test",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}

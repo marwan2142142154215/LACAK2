@@ -1,0 +1,4 @@
+# devices.json berisi device_secret PLAINTEXT hasil seed-devices.php (§39 — jangan commit
+# secret apa pun, walau untuk device load-test).
+devices.json
+node_modules

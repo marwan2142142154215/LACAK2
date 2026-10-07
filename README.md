@@ -65,9 +65,9 @@ smb-platform/
 - [x] PHASE 21 — Server Launcher Windows (`.exe` C#/.NET 8 asli, startup/health/shutdown teruji end-to-end di mesin dev — dikerjakan lebih awal atas permintaan eksplisit; lihat `smb-server-launcher/README.md`)
 - [~] PHASE 19 — SMB Master (`smb-master-android`: login+2FA, device list+overview, command center lock/unlock/request-lokasi lewat endpoint admin yang sama dengan SMB Web; BLE proximity nyata — Master central/scanner, Lacak peripheral/advertiser, `docs/ble.md`. Kode lengkap & logic murni BLE sudah diuji JVM unit test; radio BLE fisik Master↔Lacak dan build/test Android fisik BELUM diverifikasi di sesi ini — lihat DEC-003/DEC-007)
 - [~] PHASE 20 — Cloudflare (`cloudflare/config.yml` template + `cloudflare/README.md` langkah manual lengkap; `smb-server-launcher` sekarang mengecek status cloudflared struktural nyata — binary, config terisi, service Windows `RUNNING` — bukan placeholder `UNKNOWN` lagi, diverifikasi lewat `dotnet build` + `dotnet run -- doctor` sungguhan di sesi ini. **Menunggu Anda:** DNS/tunnel/WAF asli butuh akun Cloudflare Anda sendiri, tidak bisa diselesaikan dari sesi ini — lihat `cloudflare/README.md`)
-- [ ] PHASE 22 — Testing
-- [ ] PHASE 23 — Security hardening
-- [ ] PHASE 24 — Production packaging
+- [~] PHASE 22 — Testing (`docs/testing.md` — 159 test otomatis dijalankan NYATA sesi ini: 105 Laravel + 27 AdonisJS + 13 Vitest baru + 15 logic BLE/reconnect murni; load test 100 device nyata via `scripts/load-test/`, menemukan & memperbaiki bug performa+kompatibilitas nyata di `smb-gateway` — lihat DEC-009. **Menunggu Anda:** build APK/instrumented test Android dan load test skala 1.000-10.000 butuh SDK/hardware & server sungguhan yang tidak ada di sesi ini)
+- [x] PHASE 23 — Security hardening (review manual permukaan serangan baru — storage signed-URL, BLE, launcher — nihil temuan HIGH/MEDIUM; rate limiting ditambahkan ke endpoint signed media transfer; bug performa+kompatibilitas `$2y$` di `smb-gateway` ditemukan & diperbaiki via load test, DEC-009)
+- [x] PHASE 24 — Production packaging (`docs/deployment.md` — checklist produksi, urutan startup, versi yang dipin, backup/restore storage; `scripts/load-test/` untuk verifikasi beban sebelum go-live. **Menunggu Anda:** item yang butuh akun/hardware Anda sendiri didaftar eksplisit di `docs/deployment.md` §6)
 
 Setiap PHASE harus BUILD → TEST → VERIFY → DOCUMENT sebelum lanjut ke PHASE berikutnya (lihat §74/§81 spesifikasi asli). Tidak ada fase yang dinyatakan selesai tanpa itu.
 

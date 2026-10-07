@@ -4,6 +4,91 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-009 — `smb-gateway`: ganti `bcryptjs` → `bcrypt` native (ditemukan lewat load test PHASE 24, PLUS bug kompatibilitas `$2y$` yang ketemu & diperbaiki sebelum sempat jadi regresi produksi)
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 24 (load testing, §41/§42)
+**Status:** FINAL — diverifikasi berulang di lingkungan bersih, termasuk verifikasi bahwa auth benar2 SUKSES (bukan gagal cepat).
+
+### Konteks
+Load test 100 device bersamaan (`scripts/load-test/`) awalnya menemukan `smb-gateway`
+butuh **35,4 detik** untuk menyelesaikan 99 koneksi WebSocket baru, dan device LAIN yang
+sudah online ikut tidak dibalas heartbeat-nya sampai **34,8 detik** — gateway nyaris
+berhenti total selama badai koneksi, memakai `bcryptjs` (pure-JS). Isolated benchmark
+(`node -e`, tanpa gateway sama sekali) mengonfirmasi: `bcryptjs.compare()` di cost factor
+12 (format hash yang diterbitkan Laravel) untuk 20 pemanggilan **bersamaan** makan
+**7,3 detik** — hampir identik dengan 20 × waktu satu compare, membuktikan **tidak ada
+paralelisme nyata** walau kodenya memakai `await`/bentuk "async" bcryptjs.
+
+### Dua kesalahan yang ditemukan DAN diperbaiki SELAMA proses verifikasi (dicatat jujur, bukan disembunyikan)
+
+**1. Pengukuran awal tercemar proses nyasar.** Perbandingan pertama `bcryptjs` vs
+`bcrypt` native SAMA-SAMA menunjukkan ~35 detik, seolah fix tidak berpengaruh — sampai
+ketahuan ada beberapa proses `node ace test`/`node ace serve` LAMA dari pengujian
+sebelumnya di sesi ini (plus Gradle/Kotlin daemon sisa verifikasi BLE PHASE 19) masih
+hidup di background, ikut menyedot keempat core CPU container ini. `pkill -f <pattern>`
+di lingkungan ini **berulang kali tidak benar2 mematikan proses** pada percobaan
+pertama (exit code terlihat sukses, tapi `ps aux` ulang masih menunjukkan proses yang
+sama) — pelajarannya: SELALU verifikasi `ps aux` benar2 kosong (bukan percaya exit code)
+sebelum mengukur performa apa pun di container terbatas seperti ini.
+
+**2. Setelah lingkungan bersih, `bcrypt` native v6 TERNYATA tidak mengenali prefix `$2y$`**
+(format yang dipakai Laravel/PHP — HANYA `$2a$`/`$2b$` yang dikenali). Login dengan secret
+BENAR terhadap hash `$2y$` ASLI dari Laravel tetap mengembalikan `false` dari
+`bcrypt.compare()` Node, walau PHP `Hash::check()` bilang `true` untuk pasangan secret+hash
+yang SAMA PERSIS — dibuktikan langsung lewat test manual, bukan diasumsikan. **Ini berarti
+angka "~130x lebih cepat" yang sempat tercatat di draft awal entri ini SALAH** — yang
+sebenarnya terjadi adalah `bcrypt.compare()` GAGAL CEPAT karena format hash tidak dikenali
+(bukan berhasil cepat), jadi test awal (289ms/238ms) itu diam-diam mengukur 99 AUTH YANG
+GAGAL SEMUA, bukan 99 auth yang berhasil. Kalau fix ini sampai di-deploy TANPA ketahuan,
+akibatnya: **semua device gagal connect ke gateway setelah deploy** — regresi kritis.
+Ditemukan sebelum commit lewat kebiasaan "verifikasi hasil positif sebelum percaya",
+bukan kebetulan.
+
+### Keputusan
+1. Ganti `bcryptjs` → `bcrypt` (native, package `bcrypt@^6`, prebuilt binding — tidak
+   perlu compiler manual) di `app/services/websocket_service.ts`.
+2. **WAJIB** disertai `normalizeBcryptHashForNode()` — substitusi prefix `$2y$` → `$2b$`
+   sebelum `bcrypt.compare()` dipanggil. `$2y$`/`$2b$` adalah varian penanda versi yang
+   identik secara kriptografis (bukan algoritma berbeda) — substitusi ini standar &
+   aman untuk interop PHP↔Node, BUKAN downgrade keamanan. Tidak ada migrasi data; hash
+   yang tersimpan di DB tidak diubah, hanya dinormalisasi saat dibaca untuk verifikasi.
+3. Test regresi baru ditambahkan khusus untuk ini: `websocket.spec.ts` sekarang punya
+   test case yang membuat kredensial dengan prefix `$2y$` eksplisit (bukan `$2b$` bawaan
+   `bcrypt.hash()` Node) — tanpa test ini, blind spot ini bisa muncul lagi kalau library
+   hashing diganti lagi di masa depan tanpa ada yang sadar test lama tidak pernah
+   menguji hash format Laravel yang sesungguhnya.
+
+### Hasil AKHIR yang terverifikasi benar (99/99 auth SUKSES, dicek eksplisit — bukan gagal cepat)
+
+| | `bcryptjs` (lama) | `bcrypt` native + fix `$2y$` (baru) |
+|---|---|---|
+| 99 koneksi baru bersamaan, semua berhasil | 35,4 detik | **7,9 detik** |
+| Heartbeat device LAIN (sudah online) selama badai | delay sampai 34,8 detik | **4–19 ms** (praktis tidak terganggu) |
+
+**~4,5x lebih cepat** untuk waktu total badai 99 koneksi (bukan ~130x seperti draft awal
+yang salah) — **DAN** yang lebih penting: device yang sudah online **tidak lagi ikut
+macet** selama badai auth berlangsung (perbedaan 34,8 detik → single-digit milidetik ini
+yang paling berharga untuk skenario reconnect-storm §42, bukan angka agregat). Diukur
+berulang (3x) dengan hasil konsisten (7,9s / 7,9s, 99/99 sukses setiap kali). Lihat
+`scripts/load-test/README.md` untuk cara mereproduksi, dan `docs/testing.md` untuk
+ringkasan status test keseluruhan.
+
+### Dampak
+- `smb-gateway/package.json`: `bcryptjs` dihapus, `bcrypt` + `@types/bcrypt` ditambahkan.
+- 27 test AdonisJS lolos (26 lama + 1 test regresi `$2y$` baru) — perilaku functional
+  identik untuk hash `$2b$`, DAN sekarang juga benar untuk hash `$2y$` asli Laravel.
+- Tidak ada perubahan skema/migration — murni perbaikan performa + kompatibilitas library.
+- Skala yang diverifikasi: 100 device (bukan 1.000-10.000, §41) — keterbatasan container
+  dev sesi ini (4 core CPU), bukan klaim bahwa 10.000 device pasti aman di skala itu.
+  Lihat "Keterbatasan" di `scripts/load-test/README.md` untuk tindak lanjut pemilik produk.
+- **Pelajaran proses untuk sesi berikutnya**: angka performa yang "terlalu bagus untuk
+  benar" (130x dari satu swap library) seharusnya memicu kecurigaan lebih awal — jeda
+  untuk memverifikasi BAHWA hasilnya benar2 sukses (bukan cuma cepat) sebelum menulis
+  laporan, bukan sesudahnya.
+
+---
+
 ## DEC-008 — Logic BLE/reconnect murni diverifikasi NYATA (compile+run di luar Gradle/AGP); build APK penuh tetap terblokir (alasan baru, bukan DEC-003 lama)
 
 **Tanggal:** 2026-10-07

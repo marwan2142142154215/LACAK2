@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client'
 import crypto from 'node:crypto'
-import bcrypt from 'bcryptjs'
+import bcrypt from 'bcrypt'
 import db from '@adonisjs/lucid/services/db'
 import server from '@adonisjs/core/services/server'
 import redis from '@adonisjs/redis/services/main'
@@ -11,7 +11,7 @@ import redis from '@adonisjs/redis/services/main'
  * endpoint registration Laravel, yang baru dibangun di PHASE 9) — skema tabelnya
  * sudah ada dari migration Laravel (PHASE 2), jadi valid untuk dipakai di sini.
  */
-async function seedDevice(rawSecret: string) {
+async function seedDevice(rawSecret: string, hashPrefix: '$2a$' | '$2b$' | '$2y$' = '$2b$') {
   const siteId = crypto.randomUUID()
   const teamId = crypto.randomUUID()
   const deviceId = crypto.randomUUID()
@@ -48,7 +48,10 @@ async function seedDevice(rawSecret: string) {
     updated_at: new Date(),
   })
 
-  const credentialHash = await bcrypt.hash(rawSecret, 10)
+  // §DEC-009: bcrypt.hash() native SELALU menerbitkan $2b$ — paksa prefix $2y$ di sini
+  // untuk mensimulasikan hash yang BENAR-BENAR diterbitkan Laravel/PHP (format aslinya),
+  // bukan asumsi bahwa keduanya "pasti sama" tanpa dites.
+  const credentialHash = (await bcrypt.hash(rawSecret, 10)).replace(/^\$2[aby]\$/, hashPrefix)
 
   await db.table('device_credentials').insert({
     id: crypto.randomUUID(),
@@ -114,6 +117,33 @@ test.group('WebSocket device gateway', (group) => {
 
     const presence = await redis.get(`device:presence:${deviceId}`)
     assert.equal(presence, '1')
+
+    socket.disconnect()
+  })
+
+  /**
+   * §DEC-009 — regresi nyata yang ditemukan sesi ini: npm package `bcrypt` (native, dipasang
+   * untuk menggantikan `bcryptjs` yang terbukti memblokir event loop di bawah beban) TIDAK
+   * mengenali prefix `$2y$` yang dipakai Laravel/PHP — HANYA `$2a$`/`$2b$`. Credential yang
+   * diterbitkan smb-api SELALU berformat `$2y$` (lihat `bcrypt_rounds`/`Hash::make()` default
+   * Laravel) — tanpa test ini, regresi "semua device gagal login setelah deploy" baru akan
+   * ketahuan di produksi, bukan di sini. Jangan hapus test ini kalau library hashing
+   * diganti lagi di masa depan.
+   */
+  test('authenticates a device whose credential_hash uses the $2y$ prefix (format Laravel/PHP, bukan $2b$ bawaan Node)', async ({
+    assert,
+  }) => {
+    const { deviceId, publicTokenId } = await seedDevice('correct-secret', '$2y$')
+    createdDeviceIds.push(deviceId)
+
+    const socket = await connectClient(wsUrl(), {
+      device_id: deviceId,
+      public_token_id: publicTokenId,
+      device_secret: 'correct-secret',
+    })
+
+    const connected = await new Promise((resolve) => socket.on('device.connected', resolve))
+    assert.equal((connected as any).device_id, deviceId)
 
     socket.disconnect()
   })
