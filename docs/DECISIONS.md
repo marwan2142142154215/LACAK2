@@ -4,6 +4,23 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-002 — Branch tunggal `main` (develop dihapus)
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 7
+**Status:** FINAL — atas permintaan eksplisit pemilik produk.
+
+### Konteks
+§73 spesifikasi asli mewajibkan struktur branch `main` / `develop` / `feature/*` / `fix/*` / `hotfix/*` dengan larangan direct push ke `main`. Pemilik produk meminta konsolidasi: pindahkan semua ke `main`, hapus `develop`, untuk menyederhanakan workflow solo-development saat ini.
+
+### Keputusan
+Repo sekarang hanya memakai branch `main`. Commit langsung ke `main` diperbolehkan sampai ada kebutuhan nyata untuk kolaborasi multi-kontributor (branch protection/PR review) — saat itu terjadi, `develop` + `feature/*` dapat dihidupkan kembali tanpa kehilangan histori apa pun (semua commit PHASE 1-6 tetap ada di `main`).
+
+### Dampak
+Tidak ada dampak pada kode/skema — ini murni keputusan workflow Git, tidak mengubah requirement teknis lain.
+
+---
+
 ## DEC-001 — Penolakan mekanisme stealth/exploit; baseline Device Owner berbasis consent
 
 **Tanggal:** 2026-10-07
