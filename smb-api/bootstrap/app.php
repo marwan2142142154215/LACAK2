@@ -21,7 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->statefulApi();
+        // CATATAN: SENGAJA TIDAK memanggil $middleware->statefulApi(). Arsitektur kita adalah
+        // bearer-token SPA (dashboard Vue & kedua app Android mengirim header
+        // "Authorization: Bearer <token>", TIDAK PERNAH cookie session) — lihat semua 78 test
+        // backend + docs/api.md. statefulApi() membuat Sanctum menganggap request dari domain
+        // "stateful" (termasuk "localhost" di port manapun) sebagai first-party SPA cookie-based
+        // dan mewajibkan CSRF token yang memang tidak pernah kita kirim — ditemukan lewat test
+        // nyata di browser (login dari localhost:5173 ditolak "CSRF token mismatch"), bukan lewat
+        // Pest (Pest tidak mengirim header Origin/Referer jadi tidak kena jalur ini sama sekali).
 
         // Spatie Laravel Permission (§40) — alias middleware tidak lagi auto-register di Laravel 11+.
         $middleware->alias([

@@ -4,6 +4,40 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-005 — Sanctum `statefulApi()` dihapus dari `bootstrap/app.php`
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 17 (Vue Dashboard)
+**Status:** FINAL.
+
+### Konteks
+`bootstrap/app.php` memanggil `$middleware->statefulApi()` (bawaan scaffold Laravel). Ini membuat Sanctum menganggap request dari domain "stateful" (default termasuk `localhost` di PORT MANAPUN) sebagai first-party SPA cookie-based, dan mewajibkan CSRF token. Arsitektur kita BUKAN itu — dashboard Vue dan kedua app Android mengirim `Authorization: Bearer <token>` murni, tidak pernah cookie session, sejak PHASE 4/5 — dikonfirmasi oleh 78 test backend yang semuanya lewat tanpa CSRF sama sekali.
+
+Bug ini **tidak pernah muncul di Pest** karena Pest tidak mengirim header `Origin`/`Referer`, jadi `EnsureFrontendRequestsAreStateful` tidak pernah menganggap request itu "dari frontend stateful". Begitu dashboard asli dibuka di browser (`http://localhost:5173`) dan login dicoba via `php artisan serve` beneran, request SUNGGUHAN membawa `Origin: http://localhost:5173` → host `localhost` cocok dengan daftar stateful default → Sanctum mewajibkan CSRF yang tidak pernah dikirim axios → `419 CSRF token mismatch`. Ditemukan lewat uji nyata di Browser pane (bukan asumsi), persis pola "no fake success" yang dipegang proyek ini — fitur baru WAJIB benar2 dicoba di browser sebelum dianggap selesai.
+
+### Keputusan
+Hapus `$middleware->statefulApi();` sepenuhnya. Semua autentikasi API tetap bearer-token Sanctum personal access token (`guard: sanctum`), tidak ada mode cookie-SPA sama sekali. Login dashboard dicoba ulang di browser setelah fix → sukses, redirect ke `/`, overview/device list/sites/teams semua memuat data asli dari API.
+
+### Dampak
+- Tidak ada perubahan pada 78 test backend (semuanya tetap hijau — mengonfirmasi mode ini memang tidak pernah dites/dipakai).
+- Android & dashboard tidak perlu endpoint `/sanctum/csrf-cookie` atau `withCredentials` — axios client tetap sederhana (header `Authorization` saja).
+
+---
+
+## DEC-006 — Tabel device di dashboard TIDAK memakai `@tanstack/vue-table`
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 17 (Vue Dashboard)
+**Status:** FINAL (bisa direvisit kalau versi TanStack Table yang lebih stabil & terdokumentasi rilis).
+
+### Konteks
+`@tanstack/vue-table` yang terpasang (`^9.2.6`, rilis stabil terbaru di npm — bukan prerelease) adalah rewrite total dibanding v8: API berbasis "atom" reaktif (`useTable`, `TableFeatures`, `table.atoms`, `table.Subscribe`), bukan `useVueTable`/`getCoreRowModel`/`createColumnHelper` yang umum didokumentasikan. Dokumentasi publik untuk API baru ini masih sangat minim saat ditulis.
+
+### Keputusan
+`DevicesView.vue` merender tabel device dengan `v-for` Vue biasa (filter/search/pagination tetap ASLI lewat query params ke API — bukan mock), bukan lewat `@tanstack/vue-table`. Dependency tetap terpasang di `package.json` (sesuai stack wajib) untuk dipakai lagi kalau nanti dibutuhkan tabel dengan sorting/grouping kompleks dan API v9-nya sudah lebih jelas terdokumentasi, atau kalau proyek memutuskan pin ke v8 sebagai gantinya.
+
+---
+
 ## DEC-004 — Port Laravel lokal dipindah ke 8010 (bukan 8000)
 
 **Tanggal:** 2026-10-07

@@ -60,14 +60,11 @@ smb-platform/
 - [x] PHASE 14 — OTP unlock self-service (hashed, single-use, attempt-limited, rate-limited, dispatch UNLOCK otomatis — 8 test baru)
 - [x] PHASE 15 — Location (command LOCATION_REQUEST, hasil via ack.result ditulis AdonisJS, API history+latest, Android LocationCapability last-known jujur — 12 test baru)
 - [x] PHASE 16 — Camera (presigned upload URL DigitalOcean Spaces, 503 jujur kalau belum dikonfigurasi, device_media via ack.result, Android Camera2 + foreground service type camera — 9 test baru, 97 test backend total: 71 Laravel + 26 Adonis)
+- [x] PHASE 17 — Vue Dashboard (login+2FA, layout+RBAC nav, overview cards, device list+filter+detail dengan lock/unlock/request-lokasi+map Leaflet, Site & Tim CRUD — dicoba nyata di browser, bukan cuma build; menemukan & memperbaiki bug Sanctum CSRF nyata, lihat DEC-005/DEC-006)
 - [x] PHASE 21 — Server Launcher Windows (`.exe` C#/.NET 8 asli, startup/health/shutdown teruji end-to-end di mesin dev — dikerjakan lebih awal atas permintaan eksplisit; lihat `smb-server-launcher/README.md`)
-- [ ] PHASE 15 — Location
-- [ ] PHASE 16 — Camera
-- [ ] PHASE 17 — Vue Dashboard
 - [ ] PHASE 18 — Telegram
 - [ ] PHASE 19 — SMB Master
 - [ ] PHASE 20 — Cloudflare
-- [ ] PHASE 21 — Windows Server Launcher
 - [ ] PHASE 22 — Testing
 - [ ] PHASE 23 — Security hardening
 - [ ] PHASE 24 — Production packaging

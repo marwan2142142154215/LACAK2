@@ -1,0 +1,12 @@
+@import 'tailwindcss';
+
+:root {
+  --smb-ink: #0f172a;
+  --smb-blue: #2563eb;
+  --smb-green: #16a34a;
+}
+
+body {
+  background-color: #f1f5f9;
+  color: var(--smb-ink);
+}
