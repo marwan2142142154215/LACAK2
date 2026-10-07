@@ -45,3 +45,6 @@ cloudflare/*.json
 .DS_Store
 Thumbs.db
 *.log
+
+# Internal tool/session state (bukan bagian proyek)
+.claude/
