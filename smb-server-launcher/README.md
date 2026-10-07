@@ -43,8 +43,16 @@ Ctrl+C mematikan keduanya lewat `Process.Kill(entireProcessTree: true)` sebelum 
 - **Deteksi root repo** otomatis (cari folder yang punya `smb-api/` + `smb-gateway/` sebagai
   sibling) — kalau launcher dipindah keluar dari struktur repo, dia akan berhenti dengan
   pesan jelas, bukan mencoba menebak path yang salah.
-- **Cloudflare Tunnel** belum ada pengecekan nyata (PHASE 20 belum dibangun) — dilaporkan
-  `UNKNOWN`, bukan `OK` yang dipalsukan (§66).
+- **Cloudflare Tunnel** (PHASE 20): sekarang dicek struktural nyata lewat
+  `CloudflareTunnelChecker` — binary `cloudflared` di PATH, `cloudflare/config.yml` sudah
+  diisi (bukan placeholder template), dan (di Windows) service `cloudflared` benar2
+  `RUNNING` via `sc query`. Ini BUKAN pengecekan konektivitas tunnel sungguhan (butuh akun
+  Cloudflare asli Anda — lihat `cloudflare/README.md`) — kalau salah satu syarat di atas
+  belum terpenuhi, dilaporkan `NOT_CONFIGURED`/`FAIL` dengan alasan spesifik, bukan `OK`
+  yang dipalsukan (§66). **Catatan jujur**: kode C# ini ditulis & direview teliti di sesi
+  ini tapi TIDAK bisa di-compile-check (`dotnet build`) karena tidak ada .NET SDK
+  terinstal di container sesi ini — tolong jalankan `dotnet build` sendiri dan laporkan
+  kalau ada error compile.
 - **Shutdown Ctrl+C** memakai API standar .NET (`Process.Kill(entireProcessTree: true)`) dan
   terverifikasi lewat kode/dokumentasi resmi .NET, TAPI sesi development ini tidak bisa
   mengirim sinyal Ctrl+C nyata ke proses background (keterbatasan tool otomasi, bukan bug) —

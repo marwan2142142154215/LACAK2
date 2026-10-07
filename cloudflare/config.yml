@@ -1,0 +1,34 @@
+# Template konfigurasi Cloudflare Tunnel (PHASE 20, §35).
+#
+# SALIN file ini, isi `tunnel:` dan `credentials-file:` dengan nilai dari
+# `cloudflared tunnel create smb-platform` (lihat README.md di folder ini) — JANGAN commit
+# versi yang sudah terisi tunnel ID/credential path asli ke Git.
+
+tunnel: <ISI_TUNNEL_ID_DARI_CLOUDFLARED_TUNNEL_CREATE>
+credentials-file: <PATH_KE_FILE_JSON_CREDENTIAL>
+
+# §44: origin server TIDAK perlu sertifikat TLS sendiri untuk traffic dari Cloudflare —
+# tunnel sudah end-to-end encrypted. Ingress rule di bawah meneruskan ke service LOKAL
+# (loopback) di perangkat yang menjalankan cloudflared ini.
+ingress:
+  # smb-web (Vue dashboard) — build statis di-serve langsung oleh Laravel (public/) atau
+  # oleh server statis terpisah; default dev memakai Vite preview di port 4173.
+  - hostname: app.lacaksmbbot.com
+    service: http://127.0.0.1:4173
+
+  # smb-api (Laravel) — port 8010, konsisten dengan DEC-004.
+  - hostname: api.lacaksmbbot.com
+    service: http://127.0.0.1:8010
+
+  # smb-gateway (AdonisJS Socket.IO) — WSS, port 3334. cloudflared otomatis mendukung
+  # upgrade WebSocket untuk ingress rule HTTP biasa (tidak perlu konfigurasi khusus).
+  - hostname: ws.lacaksmbbot.com
+    service: http://127.0.0.1:3334
+
+  # Download Center — diserve dari Laravel yang sama (api) di path /download, atau
+  # subdomain terpisah kalau nanti dipisah jadi static file server sendiri.
+  - hostname: download.lacaksmbbot.com
+    service: http://127.0.0.1:8010
+
+  # §65: aturan terakhir WAJIB catch-all, atau cloudflared menolak start.
+  - service: http_status:404

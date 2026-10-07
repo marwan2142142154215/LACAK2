@@ -69,7 +69,8 @@ async Task RunLauncherAsync()
 
     Console.WriteLine();
     Console.WriteLine("=== Tahap 5/5: Cloudflare Tunnel ===");
-    PrintCheck("Cloudflare Tunnel", null, "UNKNOWN — belum dikonfigurasi (PHASE 20). Server tetap jalan LOKAL tanpa tunnel (§64).");
+    var (tunnelOk, tunnelDetail) = await CloudflareTunnelChecker.CheckAsync(repoRoot);
+    PrintCheck("Cloudflare Tunnel", tunnelOk, tunnelOk == false ? $"{tunnelDetail} Server tetap jalan LOKAL tanpa tunnel (§64)." : tunnelDetail);
 
     Console.WriteLine();
     var allOk = laravelHealthy && gatewayHealthy;
@@ -114,7 +115,8 @@ async Task RunDoctorAsync()
     var (gatewayOk, gatewayDetail) = await HttpHealthChecker.CheckAsync(gatewayHealthUrl);
     PrintDoctorLine("AdonisJS (smb-gateway)", gatewayOk, gatewayDetail);
 
-    PrintDoctorLine("Cloudflare Tunnel", null, "belum dikonfigurasi (PHASE 20)");
+    var (tunnelOk, tunnelDetail) = await CloudflareTunnelChecker.CheckAsync(repoRoot);
+    PrintDoctorLine("Cloudflare Tunnel", tunnelOk, tunnelDetail);
 
     Console.WriteLine();
     var allOk = pgOk && redisOk && laravelOk && gatewayOk;

@@ -1,0 +1,6 @@
+# Jangan commit versi config.yml yang sudah terisi tunnel ID/credential path asli, atau
+# file credential JSON yang didownload cloudflared tunnel create (§57 — secrets via .env,
+# jangan masuk Git).
+config.local.yml
+*.json
+.env

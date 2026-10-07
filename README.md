@@ -64,7 +64,7 @@ smb-platform/
 - [x] PHASE 18 — Telegram Bot (webhook secret-verified, /start+approve-flow eksplisit admin, RBAC ditegakkan persis sama dengan dashboard, step-up confirm-before-execute untuk LOCK/UNLOCK/LOCATION_REQUEST, /camera jujur belum didukung — 18 test baru, dicoba nyata lewat webhook sungguhan di server dev + UI approve/revoke di browser)
 - [x] PHASE 21 — Server Launcher Windows (`.exe` C#/.NET 8 asli, startup/health/shutdown teruji end-to-end di mesin dev — dikerjakan lebih awal atas permintaan eksplisit; lihat `smb-server-launcher/README.md`)
 - [~] PHASE 19 — SMB Master (`smb-master-android`: login+2FA, device list+overview, command center lock/unlock/request-lokasi lewat endpoint admin yang sama dengan SMB Web; BLE proximity nyata — Master central/scanner, Lacak peripheral/advertiser, `docs/ble.md`. Kode lengkap & logic murni BLE sudah diuji JVM unit test; radio BLE fisik Master↔Lacak dan build/test Android fisik BELUM diverifikasi di sesi ini — lihat DEC-003/DEC-007)
-- [ ] PHASE 20 — Cloudflare
+- [~] PHASE 20 — Cloudflare (`cloudflare/config.yml` template + `cloudflare/README.md` langkah manual lengkap; `smb-server-launcher` sekarang mengecek status cloudflared struktural nyata — binary, config terisi, service Windows `RUNNING` — bukan placeholder `UNKNOWN` lagi, diverifikasi lewat `dotnet build` + `dotnet run -- doctor` sungguhan di sesi ini. **Menunggu Anda:** DNS/tunnel/WAF asli butuh akun Cloudflare Anda sendiri, tidak bisa diselesaikan dari sesi ini — lihat `cloudflare/README.md`)
 - [ ] PHASE 22 — Testing
 - [ ] PHASE 23 — Security hardening
 - [ ] PHASE 24 — Production packaging
