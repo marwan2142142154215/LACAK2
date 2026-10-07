@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\MediaStorageService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
-use Throwable;
 
 class DeviceMedia extends Model
 {
@@ -41,23 +40,12 @@ class DeviceMedia extends Model
     }
 
     /**
-     * §28: akses file HANYA via signed URL expiring — storage_path tidak pernah
-     * dipublikasikan sebagai URL permanen.
+     * §28/§110-114: akses file HANYA via signed URL expiring — storage_path tidak pernah
+     * dipublikasikan sebagai URL permanen. Delegasi ke MediaStorageService supaya disk
+     * tujuan (lokal default, atau Spaces) bisa ganti lewat .env tanpa ubah model ini.
      */
     public function signedUrl(int $expiresInMinutes = 10): ?string
     {
-        if (! Storage::disk('spaces')->exists($this->storage_path)) {
-            return null;
-        }
-
-        try {
-            return Storage::disk('spaces')->temporaryUrl($this->storage_path, now()->addMinutes($expiresInMinutes));
-        } catch (Throwable $e) {
-            // Driver yang dipakai (misal 'local' saat testing via Storage::fake(), atau
-            // kalau admin salah konfigurasi disk 'spaces' ke driver non-S3) tidak
-            // mendukung temporary URL — jujur melaporkan null, bukan URL permanen yang
-            // tidak aman sebagai "solusi" (§28/§66).
-            return null;
-        }
+        return app(MediaStorageService::class)->readUrl($this->storage_path, $expiresInMinutes);
     }
 }

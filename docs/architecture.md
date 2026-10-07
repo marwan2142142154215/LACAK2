@@ -97,7 +97,7 @@ Validasi anti-race-condition (§21–22) terjadi di **setiap hop**: command_id +
 
 - **PostgreSQL** — source of truth untuk seluruh entitas (lihat skema di PHASE 2 / [database.md] akan dibuat).
 - **Redis** — cache, device presence (ephemeral key `device:presence:{id}` dengan TTL = heartbeat timeout), job non-transaksional. Tidak pernah jadi satu-satunya tempat state command/audit.
-- **DigitalOcean Spaces** — binary media (foto), DB hanya simpan metadata + signed URL generation.
+- **Storage media (abstraksi, §110-114 revisi prompt)** — binary media (foto), DB hanya simpan metadata + signed URL generation. Default **lokal** di perangkat/server pemilik produk sendiri (`SMB_STORAGE_PATH`, disk `smb_media`) — bukan cloud pihak ketiga. DigitalOcean Spaces tetap didukung sebagai opsi (`SMB_MEDIA_DISK=spaces`) lewat `MediaStorageService`, tanpa ubah kode (`docs/DECISIONS.md` DEC-007).
 
 ## 7. Environment & domain
 

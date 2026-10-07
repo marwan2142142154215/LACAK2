@@ -17,6 +17,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default Media Storage Disk (§110-114 revisi prompt — LOCAL STORAGE MODE)
+    |--------------------------------------------------------------------------
+    |
+    | Device media (foto kamera, dst) disimpan lewat abstraksi ini, BUKAN hardcode ke
+    | disk 'spaces' — lihat MediaStorageService. Default 'smb_media' (local disk, di
+    | perangkat/server milik pemilik produk sendiri — bukan cloud pihak ketiga). Ganti
+    | ke 'spaces' kapan pun via .env TANPA ubah kode (StorageService abstraction, §110).
+    |
+    */
+
+    'default_media_disk' => env('SMB_MEDIA_DISK', 'smb_media'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
@@ -56,6 +70,19 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // §110-114: storage LOKAL di perangkat/server milik pemilik produk — disk default
+        // untuk device_media (bukan Spaces). SMB_STORAGE_PATH dikonfigurasi via .env, TIDAK
+        // di-hardcode ke drive tertentu (§111 — jangan hardcode "D:\SMB\storage" di kode).
+        // 'serve' SENGAJA false — §113: tidak boleh diakses langsung lewat URL publik, hanya
+        // lewat endpoint signed URL (MediaStorageService::readUrl(), DeviceMediaTransferController).
+        'smb_media' => [
+            'driver' => 'local',
+            'root' => env('SMB_STORAGE_PATH', storage_path('app/smb-media')),
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

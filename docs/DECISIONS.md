@@ -8,7 +8,7 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 **Tanggal:** 2026-10-07
 **Fase:** PHASE 19
-**Status:** Terbuka — radio BLE fisik & server storage lokal butuh tindak lanjut pemilik proyek.
+**Status:** Sebagian selesai — BLE/SMB Master selesai dikerjakan (kode lengkap, radio fisik belum diverifikasi); storage lokal SUDAH diimplementasikan & diuji (lihat "Dampak" di bawah).
 
 ### Konteks
 PHASE 19 menambahkan `smb-master-android` (SMB Master, `com.smb.master`) dan fitur BLE proximity (§14-17 revisi prompt): Master sebagai BLE central/scanner, Lacak sebagai BLE peripheral/advertiser. Dua keputusan diambil:
@@ -17,12 +17,16 @@ PHASE 19 menambahkan `smb-master-android` (SMB Master, `com.smb.master`) dan fit
 2. **Identitas BLE baseline = ephemeral identifier acak (16 byte, dirotasi 15 menit), BUKAN GATT challenge/response kriptografis.** §16 mewajibkan "tidak broadcast secret" (dipenuhi — ephemeral ID bukan secret, tidak bisa dipakai untuk impersonate device) dan HANYA menyebut challenge/response sebagai "jika melakukan connection-level verification" (kondisional, bukan wajib). Implementasi penuh butuh GATT server di Lacak + GATT client di Master + protokol kripto tambahan — scope signifikan di luar baseline proximity/discovery yang diminta. Didokumentasikan sebagai keterbatasan eksplisit di `docs/ble.md`, bukan diklaim sebagai "identitas terverifikasi".
 
 ### Keputusan tambahan — storage & server: perangkat milik pemilik produk, bukan cloud
-Pemilik produk meminta server (smb-server-launcher) dan storage media berjalan di **perangkat miliknya sendiri**, bukan DigitalOcean Spaces/cloud pihak ketiga. Ini SELARAS dengan §110-114 revisi prompt (LOCAL STORAGE MODE sebagai default fase awal, storage abstraction `StorageService` dengan `LocalStorageDriver`) — PHASE 16 (Camera) yang sudah dibangun sebelumnya memakai presigned URL DigitalOcean Spaces secara langsung tanpa lapisan abstraksi; ini akan di-refactor jadi `LocalStorageDriver` sebagai default, `SpacesStorageDriver` tetap ada sebagai opsi masa depan (tidak dihapus, hanya bukan default).
+Pemilik produk meminta server (smb-server-launcher) dan storage media berjalan di **perangkat miliknya sendiri**, bukan DigitalOcean Spaces/cloud pihak ketiga. Ini SELARAS dengan §110-114 revisi prompt (LOCAL STORAGE MODE sebagai default fase awal). Diimplementasikan sebagai `App\Services\MediaStorageService` — SATU class abstraksi dengan method `uploadTarget()`/`readUrl()` yang bercabang berdasarkan `config('filesystems.default_media_disk')` (bukan dua class driver terpisah `LocalStorageDriver`/`SpacesStorageDriver` seperti rencana awal di §110 — disederhanakan karena hanya 2 mode dan logikanya pendek, §59 jangan over-engineer untuk kebutuhan sekecil ini):
+
+- **Default (`SMB_MEDIA_DISK=smb_media`, lokal):** disk `smb_media` (local driver, root `SMB_STORAGE_PATH`, §111). Upload device memakai **Laravel signed route** (`URL::temporarySignedRoute`) ke endpoint baru `PUT /api/v1/devices/media/upload` (bukan S3 presigned PUT) — properti keamanan setara (time-limited + HMAC signature, bukan "tanpa auth"), device tetap upload langsung ke server tanpa lewat business logic tambahan. Baca balik lewat `GET /api/v1/devices/media/download` (signed juga). Kedua endpoint divalidasi `assertSafePath()` (prefix `devices/`, anti path-traversal, §113).
+- **Opsional (`SMB_MEDIA_DISK=spaces`):** kode PHASE 16 asli (presigned S3 URL ke Spaces) tetap ada, dipilih lewat `.env` tanpa ubah kode.
 
 ### Dampak
-- `docs/api.md` perlu update path baru (`/devices/{device}/media` upload lewat server lokal, bukan presigned Spaces URL) — dikerjakan sebagai follow-up langsung setelah entri ini.
-- Tidak ada perubahan pada command broker/lock/unlock/location — hanya lapisan storage untuk camera/media yang terdampak.
-- Radio BLE fisik (Master↔Lacak lewat Bluetooth sungguhan) dan build/test fisik Android (DEC-003) masih sama-sama menunggu verifikasi pemilik proyek di perangkat nyata — TIDAK diklaim "sudah bekerja" di sesi ini (§84/§88).
+- `docs/api.md`, `docs/architecture.md`, `docs/database.md` diupdate untuk mendokumentasikan endpoint & disk baru.
+- `DeviceCameraController`, `DeviceMedia::signedUrl()` diubah untuk delegasi ke `MediaStorageService` — tidak ada perubahan pada command broker/lock/unlock/location.
+- Test backend diupdate (`DeviceCameraTest.php`) + ditambah (`DeviceMediaTransferTest.php`, 8 test baru: roundtrip upload→download bytes identik, signature tampered→403, expired→403, path traversal→400, path di luar prefix `devices/`→400, oversize→422, download 404 kalau file belum ada).
+- Radio BLE fisik (Master↔Lacak lewat Bluetooth sungguhan) dan build/test fisik Android (DEC-003) masih menunggu verifikasi pemilik proyek di perangkat nyata — TIDAK diklaim "sudah bekerja" (§84/§88). Ini TIDAK terpengaruh oleh perubahan storage di atas (keduanya independen).
 
 ---
 

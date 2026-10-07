@@ -8,37 +8,42 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Device;
 use App\Models\DeviceMedia;
 use App\Services\DeviceCommandDispatcher;
+use App\Services\MediaStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * §27/§28 — Camera capture. Device TIDAK upload lewat Laravel/AdonisJS (foto bisa besar,
- * §28 diagram memang device -> DigitalOcean Spaces langsung) — Laravel hanya menyiapkan
- * presigned PUT URL dan menitipkannya di payload command, device upload LANGSUNG ke
- * Spaces, lalu ack SUCCESS dengan metadata hasil (pola sama dengan Location, PHASE 15).
+ * §27/§28/§110-114 — Camera capture. Device TIDAK upload lewat Laravel/AdonisJS (foto bisa
+ * besar) — Laravel hanya menyiapkan URL upload (lokal signed URL ATAU presigned Spaces URL,
+ * lewat MediaStorageService) dan menitipkannya di payload command, device upload LANGSUNG
+ * ke tujuan storage, lalu ack SUCCESS dengan metadata hasil (pola sama dengan Location,
+ * PHASE 15). Default storage = lokal (perangkat/server pemilik produk sendiri, §110).
  */
 class DeviceCameraController extends Controller
 {
-    public function __construct(private DeviceCommandDispatcher $dispatcher) {}
+    public function __construct(
+        private DeviceCommandDispatcher $dispatcher,
+        private MediaStorageService $storage,
+    ) {}
 
     public function request(StoreCameraRequestRequest $request, Device $device): JsonResponse
     {
         $storagePath = sprintf('devices/%s/media/%s.jpg', $device->id, (string) Str::uuid());
 
         try {
-            $upload = Storage::disk('spaces')->temporaryUploadUrl(
-                $storagePath,
-                now()->addMinutes(10),
-            );
+            $upload = $this->storage->uploadTarget($storagePath);
         } catch (Throwable $e) {
-            // §66/§69: jujur kalau Spaces belum terkonfigurasi — jangan buat command yang
-            // device tidak akan pernah bisa selesaikan (tidak ada tempat upload).
+            // §66/§69: jujur kalau storage tujuan (Spaces, kalau SMB_MEDIA_DISK=spaces) belum
+            // terkonfigurasi — jangan buat command yang device tidak akan pernah bisa
+            // selesaikan (tidak ada tempat upload). Storage lokal (default) tidak pernah masuk
+            // sini kecuali APP_KEY belum di-generate (signed URL butuh APP_KEY, kasus setup awal).
             return ApiResponse::error(
-                'DigitalOcean Spaces belum terkonfigurasi di server (DO_SPACES_KEY/SECRET kosong). '.
-                'Isi .env sebelum mengirim perintah camera.',
+                'Storage media belum terkonfigurasi dengan benar di server. '.
+                ($this->storage->isLocal()
+                    ? 'Pastikan APP_KEY sudah di-generate.'
+                    : 'Isi DO_SPACES_KEY/SECRET di .env sebelum mengirim perintah camera.'),
                 [],
                 503,
             );

@@ -203,7 +203,9 @@ Audit trail tiap perubahan status command (append-only, beda dari `device_comman
 | created_at | index | |
 
 ## 13. `device_media`
-Metadata foto — binary di DigitalOcean Spaces (§28).
+Metadata foto — binary di disk storage yang dikonfigurasi lewat `MediaStorageService` (§110-114):
+default lokal (`smb_media`, perangkat/server pemilik produk sendiri), opsional DigitalOcean
+Spaces (`SMB_MEDIA_DISK=spaces`, §28) — tidak ada perubahan skema antara kedua mode.
 
 | Kolom | Tipe | Keterangan |
 |---|---|---|
@@ -211,7 +213,7 @@ Metadata foto — binary di DigitalOcean Spaces (§28).
 | device_id | uuid FK -> devices.id, index | |
 | command_id | uuid FK -> device_commands.id nullable | |
 | camera_facing | varchar(10) | FRONT/BACK |
-| storage_path | varchar(500) | path di Spaces, bukan URL publik |
+| storage_path | varchar(500) | path relatif di disk storage (lokal atau Spaces), bukan URL publik |
 | mime_type | varchar(50) | |
 | size_bytes | bigint | |
 | sha256_hash | varchar(64) | integrity check |

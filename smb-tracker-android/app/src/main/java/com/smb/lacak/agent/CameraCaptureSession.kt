@@ -22,13 +22,15 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * §27/§28 — capture SATU foto JPEG via Camera2 resmi (BUKAN hidden/exploit) lalu upload
- * LANGSUNG ke presigned URL yang sudah disiapkan Laravel (§28 diagram: device -> Spaces
- * langsung, bukan lewat server). Dijalankan dari DeviceAgentService (foreground service
- * type "camera", §7) — TIDAK membuka Activity/preview (tidak ada UI capture), tapi
- * indikator privasi kamera Android (titik hijau, API 29+) tetap muncul karena memang
- * benar2 memakai kamera — ini JUJUR, bukan disembunyikan dari OS (§69/§78: tidak ada
- * accessibility abuse/bypass permission).
+ * §27/§28/§110-114 — capture SATU foto JPEG via Camera2 resmi (BUKAN hidden/exploit) lalu
+ * upload LANGSUNG ke URL yang sudah disiapkan Laravel — secara default URL signed ke
+ * storage lokal server (`MediaStorageService`, §110), atau presigned Spaces URL kalau
+ * `SMB_MEDIA_DISK=spaces` dikonfigurasi. Device tidak perlu tahu/peduli mana yang dipakai
+ * — keduanya sama-sama HTTP PUT biasa (`uploadToStorage`). Dijalankan dari
+ * DeviceAgentService (foreground service type "camera", §7) — TIDAK membuka
+ * Activity/preview (tidak ada UI capture), tapi indikator privasi kamera Android (titik
+ * hijau, API 29+) tetap muncul karena memang benar2 memakai kamera — ini JUJUR, bukan
+ * disembunyikan dari OS (§69/§78: tidak ada accessibility abuse/bypass permission).
  */
 object CameraCaptureSession {
     sealed class Result {
@@ -59,7 +61,7 @@ object CameraCaptureSession {
 
         val sha256 = MessageDigest.getInstance("SHA-256").digest(jpegBytes).joinToString("") { "%02x".format(it) }
 
-        val uploaded = uploadToSpaces(uploadUrl, uploadHeaders, jpegBytes)
+        val uploaded = uploadToStorage(uploadUrl, uploadHeaders, jpegBytes)
         if (!uploaded) {
             return Result.Unavailable("Upload ke storage gagal (jaringan atau URL presigned sudah kedaluwarsa).")
         }
@@ -144,7 +146,7 @@ object CameraCaptureSession {
             continuation.invokeOnCancellation { cleanup() }
         }
 
-    private fun uploadToSpaces(url: String, headers: Map<String, String>, bytes: ByteArray): Boolean {
+    private fun uploadToStorage(url: String, headers: Map<String, String>, bytes: ByteArray): Boolean {
         return try {
             val connection = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
                 requestMethod = "PUT"

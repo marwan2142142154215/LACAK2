@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
 use App\Http\Controllers\Api\V1\DeviceLocationController;
 use App\Http\Controllers\Api\V1\DeviceLockController;
+use App\Http\Controllers\Api\V1\DeviceMediaTransferController;
 use App\Http\Controllers\Api\V1\DeviceOtpController;
 use App\Http\Controllers\Api\V1\DeviceRegistrationController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -71,6 +72,17 @@ Route::prefix('v1')->group(function () {
     // TelegramCommandHandler terhadap user yang telegram_account-nya APPROVED (§30).
     Route::post('/telegram/webhook', TelegramWebhookController::class)
         ->middleware('throttle:telegram-webhook');
+
+    // §110-114 — storage media LOKAL (default). PUBLIK dengan sengaja, dilindungi Laravel
+    // signed URL (middleware 'signed': HMAC signature + expiry di query string) — pola yang
+    // sama persis dengan S3 presigned URL (§28), bukan "tanpa auth sama sekali". Device/
+    // browser tidak perlu kirim Sanctum token atau device credential untuk endpoint ini.
+    Route::put('/devices/media/upload', [DeviceMediaTransferController::class, 'upload'])
+        ->middleware('signed')
+        ->name('devices.media.upload');
+    Route::get('/devices/media/download', [DeviceMediaTransferController::class, 'download'])
+        ->middleware('signed')
+        ->name('devices.media.download');
 
     // PHASE 6 — RBAC: Sites & Teams, digerbangi permission (§40), bukan hanya sembunyikan menu
     // di FE — authorize() di controller/FormRequest menegakkannya di server (§14).

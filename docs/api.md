@@ -89,15 +89,21 @@ Status command: `PENDING→QUEUED→SENT→DELIVERED→RECEIVED→EXECUTING→SU
 
 Device status `LOCKED` diset otomatis oleh AdonisJS saat command `LOCK` benar2 `SUCCESS` (bukan saat command baru dibuat) — lihat `docs/websocket.md`.
 
-## Camera (PHASE 16, §27/§28)
+## Camera & storage media (PHASE 16 + PHASE 19 revisi §110-114, §27/§28)
+
+Storage tujuan device media diabstraksi lewat `MediaStorageService` (`App\Services\MediaStorageService`) dan dipilih via `.env` (`SMB_MEDIA_DISK=smb_media` default, atau `spaces`) — **tanpa ubah kode**. Default = storage **lokal** di perangkat/server pemilik produk sendiri (`SMB_STORAGE_PATH`, §110-114), bukan cloud pihak ketiga.
 
 | Method | Path | Auth | Keterangan |
 |---|---|---|---|
-| POST | `/devices/{device}/camera/request` | permission `devices.camera` | `{camera_facing: FRONT\|BACK}` → generate presigned PUT URL (DigitalOcean Spaces) + command `CAMERA_REQUEST` dengan URL itu di payload. **503** jujur kalau Spaces belum dikonfigurasi (`DO_SPACES_KEY`/`SECRET` kosong) — command TIDAK dibuat kalau device tidak punya tempat upload. |
+| POST | `/devices/{device}/camera/request` | permission `devices.camera` | `{camera_facing: FRONT\|BACK}` → generate URL upload (signed lokal ATAU presigned Spaces, tergantung `SMB_MEDIA_DISK`) + command `CAMERA_REQUEST` dengan URL itu di payload. **503** jujur kalau storage tujuan belum siap (APP_KEY belum di-generate untuk lokal, atau `DO_SPACES_KEY`/`SECRET` kosong untuk mode Spaces) — command TIDAK dibuat kalau device tidak punya tempat upload. |
 | GET | `/devices/{device}/media` | permission `devices.camera` | Riwayat foto, paginated |
 | GET | `/devices/{device}/media/{media}/url` | permission `devices.camera` | Signed URL sementara (10 menit) ke file asli — `storage_path` tidak pernah jadi URL publik permanen |
+| PUT | `/devices/media/upload?path=...&signature=...` | **publik, dilindungi Laravel signed URL** (bukan Sanctum/device-credential) | Hanya dipakai saat `SMB_MEDIA_DISK=smb_media` (default). Device PUT bytes mentah JPEG langsung ke sini — `path` divalidasi (`devices/` prefix, tanpa `..`), ukuran dibatasi 15MB. |
+| GET | `/devices/media/download?path=...&signature=...` | **publik, dilindungi Laravel signed URL** | Streaming balik file lokal (dipakai oleh URL hasil `/media/{media}/url`) dengan `Content-Type` sesuai file. |
 
-Device upload **langsung** ke Spaces (tidak lewat Laravel/AdonisJS) memakai presigned URL tersebut, lalu ack `SUCCESS` dengan metadata (`mime_type`, `size_bytes`, `sha256_hash`, `captured_at`) — AdonisJS menulis baris `device_media` menggabungkan payload command (storage_path/camera_facing) + metadata dari ack. Kalau device tidak punya kamera yang diminta atau izin ditolak, ack `FAILED` dengan alasan jujur (`CAMERA_UNAVAILABLE` dkk, §69) — tidak ada baris media yang ditulis.
+Device upload **langsung** ke tujuan storage (tidak lewat business logic Laravel/AdonisJS tambahan) memakai URL dari `camera/request`, lalu ack `SUCCESS` dengan metadata (`mime_type`, `size_bytes`, `sha256_hash`, `captured_at`) — AdonisJS menulis baris `device_media` menggabungkan payload command (storage_path/camera_facing) + metadata dari ack. Kalau device tidak punya kamera yang diminta atau izin ditolak, ack `FAILED` dengan alasan jujur (`CAMERA_UNAVAILABLE` dkk, §69) — tidak ada baris media yang ditulis.
+
+**Keamanan endpoint upload/download lokal**: "publik" di atas berarti tidak perlu Bearer token atau device credential — tapi tetap digerbangi Laravel `ValidateSignature` middleware (`signed`): URL tanpa signature valid atau sudah lewat `expires_in_minutes` ditolak **403**, path traversal/di luar prefix `devices/` ditolak **400**. Properti keamanan setara S3 presigned URL (§28), bukan "tanpa auth sama sekali" — lihat `tests/Feature/DeviceMediaTransferTest.php`.
 
 ## Telegram Bot (PHASE 18, §29/§30)
 
