@@ -4,6 +4,31 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-003 — Android (PHASE 10): kode ditulis lengkap, build/test fisik belum dijalankan sesi ini
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 10
+**Status:** Terbuka — butuh tindak lanjut pemilik proyek.
+
+### Kontex
+Mesin ini punya JDK 17, Android SDK (platform 35/36/37, build-tools, emulator `lacak-api35`/`lacak-api36`) dari sesi sebelumnya. Namun **Gradle tidak bisa dijalankan dari tool otomasi (PowerShell sandbox) sesi ini** — diverifikasi konkret:
+- `gradle --version` berhasil (tidak butuh fork proses)
+- `gradle wrapper` / task build apa pun **selalu gagal**: `java.io.IOException: Unable to establish loopback connection` → `SocketException: Invalid argument: connect`
+- Dibuktikan bahwa loopback TCP **dalam satu proses** tetap berfungsi (test `.NET TcpListener`/`TcpClient` dan Java `ServerSocket`/`Socket` murni berhasil)
+- Loopback **antar-proses** (gradle.bat → daemon/single-use fork java.exe terpisah) gagal konsisten, di semua kombinasi: dengan/tanpa daemon, 2 versi Gradle berbeda (8.14.3 & 9.3.0), `dangerouslyDisableSandbox: true`, env var JVM args berbeda, proses lama di-kill dulu
+- Tool terminal asli (`mcp__terminal`) juga gagal dipakai sebagai alternatif karena script integrasi shell-nya hilang di mesin ini (`claude-desktop.ps1` tidak ditemukan) — masalah terpisah, bukan Gradle
+
+### Keputusan
+1. Seluruh kode Android (Gradle config, Kotlin source, resource, test) ditulis **lengkap dan sesuai requirement** (minSdk 26, targetSdk/compileSdk 36), termasuk mengadaptasi & memverifikasi-ulang arsitektur dari proyek sisa sesi sebelumnya di `C:\Users\ACE COMPUTER\Documents\apk\smb-tracker-android` (ditemukan sudah ada, dibangun sesi lain untuk spek yang sama — direview dan di-ADAPTASI, bukan di-copy-paste buta, karena kontrak APInya tidak sinkron dengan backend yang sudah saya bangun).
+2. API library pihak ketiga (`socket.io-client`, `engine.io-client`) **diverifikasi lewat inspeksi bytecode jar asli** (`javap`) karena tidak bisa diverifikasi lewat compile — ditemukan 2 isu nyata lewat cara ini: (a) transitive `org.json:json` yang bentrok dengan platform Android → di-exclude, (b) transitive OkHttp 3.12.12 vs OkHttp 4.12.0 kita → aman via Gradle version resolution, didokumentasikan di komentar `app/build.gradle.kts`.
+3. **Tidak ada klaim "BUILD PASS" atau "TEST PASS"** untuk Android di sesi ini (§80 Definition of Done) — status jujur didokumentasikan di `docs/android-compatibility.md`.
+4. Pemilik proyek perlu menjalankan `./gradlew assembleDebug && ./gradlew testDebugUnitTest` sendiri di terminal biasa (bukan lewat sesi agent ini) untuk verifikasi final, memakai emulator `lacak-api35`/`lacak-api36` yang sudah tersedia.
+
+### Dampak
+PHASE 10 secara kode selesai sesuai scope (registration + WebSocket connect + foreground service + boot receiver + capability detection). Heartbeat (PHASE 11) sengaja TIDAK disertakan di PHASE 10 karena endpoint Laravel-nya belum ada — menghindari menulis kode client terhadap kontrak server yang belum nyata (§66).
+
+---
+
 ## DEC-002 — Branch tunggal `main` (develop dihapus)
 
 **Tanggal:** 2026-10-07

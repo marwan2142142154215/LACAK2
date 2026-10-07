@@ -1,0 +1,13 @@
+<!--
+    Hanya untuk build DEBUG: izinkan cleartext HTTP ke 10.0.2.2 (alias host-machine di
+    emulator) supaya bisa testing lokal terhadap smb-api/smb-gateway sebelum ada HTTPS.
+    Build RELEASE TETAP usesCleartextTraffic="false" tanpa override ini (lihat manifest
+    utama) — production WAJIB HTTPS/WSS (§45), tidak pernah http://IP:PORT (§10).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config_debug"
+        tools:ignore="HardcodedDebugMode"
+        xmlns:tools="http://schemas.android.com/tools" />
+</manifest>

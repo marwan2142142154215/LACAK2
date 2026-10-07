@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.SmbLacak" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/smb_blue</item>
+        <item name="colorSecondary">@color/smb_green</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">@color/smb_navy</item>
+        <item name="android:navigationBarColor">@color/smb_navy</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

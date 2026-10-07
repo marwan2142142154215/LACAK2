@@ -53,7 +53,7 @@ smb-platform/
 - [x] PHASE 7 — AdonisJS (scaffold, health check, internal auth middleware, 5 test)
 - [x] PHASE 8 — WebSocket (auth handshake via `io.use()`, presence, device_sessions, 11 test — lihat `docs/websocket.md`)
 - [x] PHASE 9 — Device registration (registration code generate+consume, race-safe row lock, 9 test — lihat `docs/api.md`)
-- [ ] PHASE 10 — Android SMB Lacak
+- [x] PHASE 10 — Android SMB Lacak (kode lengkap: registration+WebSocket(Socket.IO)+foreground service+boot receiver+capability detection; **build/test fisik BELUM dijalankan sesi ini** — lihat `docs/android-compatibility.md` & DEC-003)
 - [ ] PHASE 11 — Heartbeat/reconnect
 - [ ] PHASE 12 — Command broker
 - [ ] PHASE 13 — Lock/unlock
