@@ -11,6 +11,7 @@ import DeviceCommandLog from '#models/device_command_log'
 import DeviceCredential from '#models/device_credential'
 import DeviceHeartbeat from '#models/device_heartbeat'
 import DeviceLocation from '#models/device_location'
+import DeviceMedia from '#models/device_media'
 import DeviceSession from '#models/device_session'
 import { DEGRADED_THRESHOLD_SECONDS, resolveDeviceStatus } from '#services/device_status_resolver'
 import { isValidDeviceAckTransition } from '#services/command_status_transition'
@@ -57,14 +58,21 @@ interface DeviceCommandAckPayload {
   command_id?: string
   status?: string
   failure_reason?: string | null
-  /** §25/§26: hasil LOCATION_REQUEST dibawa di ack SUCCESS — tidak ada event terpisah,
-   * supaya tetap tunduk pada state-machine & validasi anti wrong-device yang sama. */
+  /** §25/§26/§27/§28: hasil LOCATION_REQUEST/CAMERA_REQUEST dibawa di ack SUCCESS —
+   * tidak ada event terpisah, supaya tetap tunduk pada state-machine & validasi anti
+   * wrong-device yang sama. Field yang relevan beda per command_type (lihat pemakaian). */
   result?: {
+    // LOCATION_REQUEST
     latitude?: number
     longitude?: number
     accuracy?: number | null
     source?: 'GPS' | 'NETWORK' | 'FUSED' | 'LAST_KNOWN'
     recorded_at?: string | null
+    // CAMERA_REQUEST
+    mime_type?: string
+    size_bytes?: number
+    sha256_hash?: string
+    captured_at?: string | null
   }
 }
 
@@ -379,6 +387,36 @@ class WebSocketService {
         receivedAt,
         requestedByCommandId: command.id,
       })
+    }
+
+    // §27/§28: tulis metadata foto HANYA kalau device konfirmasi upload benar2 selesai
+    // dengan metadata yang valid — storage_path/camera_facing diambil dari payload
+    // command (dibuat Laravel saat request), bukan dari device (device tidak boleh
+    // menentukan sendiri path penyimpanannya).
+    if (
+      toStatus === 'SUCCESS' &&
+      command.commandType === 'CAMERA_REQUEST' &&
+      result?.mime_type &&
+      result?.size_bytes !== undefined &&
+      result?.sha256_hash
+    ) {
+      const payload = command.payload as { camera_facing?: string; storage_path?: string } | null
+      const capturedAt = result.captured_at ? DateTime.fromISO(result.captured_at) : DateTime.now()
+
+      if (payload?.storage_path && payload?.camera_facing) {
+        await DeviceMedia.create({
+          id: crypto.randomUUID(),
+          deviceId: command.deviceId,
+          commandId: command.id,
+          cameraFacing: payload.camera_facing as 'FRONT' | 'BACK',
+          storagePath: payload.storage_path,
+          mimeType: result.mime_type,
+          sizeBytes: result.size_bytes,
+          sha256Hash: result.sha256_hash,
+          capturedAt: capturedAt.isValid ? capturedAt : DateTime.now(),
+          uploadedAt: DateTime.now(),
+        })
+      }
     }
   }
 

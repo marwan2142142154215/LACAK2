@@ -79,6 +79,16 @@ Status command: `PENDING→QUEUED→SENT→DELIVERED→RECEIVED→EXECUTING→SU
 
 Device status `LOCKED` diset otomatis oleh AdonisJS saat command `LOCK` benar2 `SUCCESS` (bukan saat command baru dibuat) — lihat `docs/websocket.md`.
 
+## Camera (PHASE 16, §27/§28)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| POST | `/devices/{device}/camera/request` | permission `devices.camera` | `{camera_facing: FRONT\|BACK}` → generate presigned PUT URL (DigitalOcean Spaces) + command `CAMERA_REQUEST` dengan URL itu di payload. **503** jujur kalau Spaces belum dikonfigurasi (`DO_SPACES_KEY`/`SECRET` kosong) — command TIDAK dibuat kalau device tidak punya tempat upload. |
+| GET | `/devices/{device}/media` | permission `devices.camera` | Riwayat foto, paginated |
+| GET | `/devices/{device}/media/{media}/url` | permission `devices.camera` | Signed URL sementara (10 menit) ke file asli — `storage_path` tidak pernah jadi URL publik permanen |
+
+Device upload **langsung** ke Spaces (tidak lewat Laravel/AdonisJS) memakai presigned URL tersebut, lalu ack `SUCCESS` dengan metadata (`mime_type`, `size_bytes`, `sha256_hash`, `captured_at`) — AdonisJS menulis baris `device_media` menggabungkan payload command (storage_path/camera_facing) + metadata dari ack. Kalau device tidak punya kamera yang diminta atau izin ditolak, ack `FAILED` dengan alasan jujur (`CAMERA_UNAVAILABLE` dkk, §69) — tidak ada baris media yang ditulis.
+
 ## Health (PHASE 3/4/7)
 
 | Method | Path | Keterangan |

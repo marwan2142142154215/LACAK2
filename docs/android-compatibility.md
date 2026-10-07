@@ -45,10 +45,9 @@ terhadap emulator `lacak-api35`/`lacak-api36` yang sudah ada, lalu melaporkan ha
 - Heartbeat WS periodik + WorkManager HTTPS fallback (PHASE 11)
 - Lock/Unlock (PHASE 13): `LockActivity` + `LockStateStore`, Device Owner-aware (`startLockTask()`/`stopLockTask()` resmi), fallback jujur kalau bukan managed device — ack `RECEIVED→EXECUTING→SUCCESS/FAILED` ke `device.command.ack`
 - Location (PHASE 15): `LocationCapability.requestLastKnown()` — HANYA last-known (bukan fix GPS baru, §70), cek permission `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` jujur, `source` selalu dilaporkan `LAST_KNOWN` (bukan diklaim real-time GPS)
+- Camera (PHASE 16): `CameraCaptureSession` — Camera2 API resmi (bukan hidden/exploit), foreground service type `camera` dideklarasikan eksplisit (indikator privasi Android tetap muncul — jujur, tidak disembunyikan), upload langsung ke presigned URL Spaces, ack `FAILED` jujur kalau kamera tidak tersedia/izin ditolak/upload gagal
 
-## Yang BELUM ada (menyusul PHASE 16+)
-
-- Camera capability execution (PHASE 16)
+## Status PHASE 10-16: semua kode Android SIAP tapi BELUM pernah di-build/dijalankan fisik di sesi mana pun (DEC-003 masih berlaku untuk seluruh kode Kotlin yang ditulis sejak itu, termasuk Camera2 — kompleksitas tertinggi di antara semua fitur Android, paling butuh verifikasi `gradlew` + device/emulator nyata sebelum diklaim bekerja).
 - Update strategy (§51)
 
 ## Keterbatasan Android yang didokumentasikan (§68-70)

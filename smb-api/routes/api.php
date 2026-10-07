@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
+use App\Http\Controllers\Api\V1\DeviceCameraController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
 use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
 use App\Http\Controllers\Api\V1\DeviceLocationController;
@@ -87,5 +88,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/devices/{device}/location/request', [DeviceLocationController::class, 'request']);
         Route::get('/devices/{device}/locations', [DeviceLocationController::class, 'index']);
         Route::get('/devices/{device}/locations/latest', [DeviceLocationController::class, 'latest']);
+
+        // PHASE 16 — Camera (§27/§28).
+        Route::post('/devices/{device}/camera/request', [DeviceCameraController::class, 'request']);
+        Route::get('/devices/{device}/media', [DeviceCameraController::class, 'index']);
+        Route::get('/devices/{device}/media/{media}/url', [DeviceCameraController::class, 'url']);
     });
 });

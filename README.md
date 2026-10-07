@@ -58,7 +58,8 @@ smb-platform/
 - [x] PHASE 12 — Command broker (create+dispatch+ack lifecycle, idempotency, anti wrong-device, forward-only state machine, auto-expire — 13 test baru, 66 test backend total lolos)
 - [x] PHASE 13 — Lock/unlock (DeviceLockController, status LOCKED/restore otomatis, Android LockActivity Device Owner-aware)
 - [x] PHASE 14 — OTP unlock self-service (hashed, single-use, attempt-limited, rate-limited, dispatch UNLOCK otomatis — 8 test baru)
-- [x] PHASE 15 — Location (command LOCATION_REQUEST, hasil via ack.result ditulis AdonisJS, API history+latest, Android LocationCapability last-known jujur — 7 test baru, 88 test backend total: 64 Laravel + 24 Adonis)
+- [x] PHASE 15 — Location (command LOCATION_REQUEST, hasil via ack.result ditulis AdonisJS, API history+latest, Android LocationCapability last-known jujur — 12 test baru)
+- [x] PHASE 16 — Camera (presigned upload URL DigitalOcean Spaces, 503 jujur kalau belum dikonfigurasi, device_media via ack.result, Android Camera2 + foreground service type camera — 9 test baru, 97 test backend total: 71 Laravel + 26 Adonis)
 - [x] PHASE 21 — Server Launcher Windows (`.exe` C#/.NET 8 asli, startup/health/shutdown teruji end-to-end di mesin dev — dikerjakan lebih awal atas permintaan eksplisit; lihat `smb-server-launcher/README.md`)
 - [ ] PHASE 15 — Location
 - [ ] PHASE 16 — Camera

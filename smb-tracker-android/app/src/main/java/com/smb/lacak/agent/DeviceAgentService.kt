@@ -116,7 +116,15 @@ class DeviceAgentService : Service() {
         createNotificationChannel()
         val notification = buildNotification("Menyiapkan koneksi ke server SMB.")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            // §27/§28: tipe CAMERA disertakan dari awal (bukan di-toggle dinamis saat
+            // command CAMERA_REQUEST datang) — lebih sederhana & robust. Ini HANYA
+            // deklarasi "service ini BOLEH pakai kamera", bukan mengaktifkan kamera itu
+            // sendiri; kamera baru benar2 dipakai saat CameraCaptureSession dipanggil.
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA,
+            )
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -249,6 +257,28 @@ class DeviceAgentService : Service() {
                     is LocationCapability.Result.Unavailable -> {
                         AgentLogger.warn(credential.deviceId, "LOCATION_REQUEST unavailable: ${result.reason}", commandId)
                         ack(socket, commandId, "FAILED", result.reason)
+                    }
+                }
+            }
+            "CAMERA_REQUEST" -> {
+                val payload = data.optJSONObject("payload")
+                val facing = payload?.optString("camera_facing") ?: "BACK"
+                val uploadUrl = payload?.optString("upload_url")
+                val headers = payload?.optJSONObject("upload_headers")
+                if (uploadUrl.isNullOrBlank()) {
+                    ack(socket, commandId, "FAILED", "Server tidak menyertakan upload_url.")
+                } else {
+                    val headerMap = mutableMapOf<String, String>()
+                    headers?.keys()?.forEach { key -> headerMap[key] = headers.optString(key) }
+                    ack(socket, commandId, "EXECUTING")
+                    scope.launch {
+                        when (val result = CameraCaptureSession.captureAndUpload(this@DeviceAgentService, facing, uploadUrl, headerMap)) {
+                            is CameraCaptureSession.Result.Success -> ackWithResult(socket, commandId, "SUCCESS", result.result)
+                            is CameraCaptureSession.Result.Unavailable -> {
+                                AgentLogger.warn(credential.deviceId, "CAMERA_UNAVAILABLE: ${result.reason}", commandId)
+                                ack(socket, commandId, "FAILED", result.reason)
+                            }
+                        }
                     }
                 }
             }
