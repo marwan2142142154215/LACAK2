@@ -72,5 +72,8 @@
       "./app/middleware/*.ts"
     ]
   },
-  "prettier": "@adonisjs/prettier-config"
+  "prettier": "@adonisjs/prettier-config",
+  "allowScripts": {
+    "bcrypt@6.0.0": true
+  }
 }
