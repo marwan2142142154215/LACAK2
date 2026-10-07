@@ -57,7 +57,8 @@ smb-platform/
 - [x] PHASE 11 — Heartbeat/reconnect (WS heartbeat jalur utama di AdonisJS, HTTPS fallback di Laravel, DeviceStatusResolver identik 2 sisi, WorkManager recovery Android — backend 7 test lolos, Android belum dijalankan fisik)
 - [x] PHASE 12 — Command broker (create+dispatch+ack lifecycle, idempotency, anti wrong-device, forward-only state machine, auto-expire — 13 test baru, 66 test backend total lolos)
 - [x] PHASE 13 — Lock/unlock (DeviceLockController, status LOCKED/restore otomatis, Android LockActivity Device Owner-aware)
-- [x] PHASE 14 — OTP unlock self-service (hashed, single-use, attempt-limited, rate-limited, dispatch UNLOCK otomatis — 8 test baru, 81 test backend total: 59 Laravel + 22 Adonis)
+- [x] PHASE 14 — OTP unlock self-service (hashed, single-use, attempt-limited, rate-limited, dispatch UNLOCK otomatis — 8 test baru)
+- [x] PHASE 15 — Location (command LOCATION_REQUEST, hasil via ack.result ditulis AdonisJS, API history+latest, Android LocationCapability last-known jujur — 7 test baru, 88 test backend total: 64 Laravel + 24 Adonis)
 - [x] PHASE 21 — Server Launcher Windows (`.exe` C#/.NET 8 asli, startup/health/shutdown teruji end-to-end di mesin dev — dikerjakan lebih awal atas permintaan eksplisit; lihat `smb-server-launcher/README.md`)
 - [ ] PHASE 15 — Location
 - [ ] PHASE 16 — Camera

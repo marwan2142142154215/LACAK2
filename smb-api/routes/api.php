@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
 use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
+use App\Http\Controllers\Api\V1\DeviceLocationController;
 use App\Http\Controllers\Api\V1\DeviceLockController;
 use App\Http\Controllers\Api\V1\DeviceOtpController;
 use App\Http\Controllers\Api\V1\DeviceRegistrationController;
@@ -81,5 +82,10 @@ Route::prefix('v1')->group(function () {
 
         // PHASE 14 — admin generate OTP (§24).
         Route::post('/devices/{device}/otp', [DeviceOtpController::class, 'store']);
+
+        // PHASE 15 — Location (§25/§26).
+        Route::post('/devices/{device}/location/request', [DeviceLocationController::class, 'request']);
+        Route::get('/devices/{device}/locations', [DeviceLocationController::class, 'index']);
+        Route::get('/devices/{device}/locations/latest', [DeviceLocationController::class, 'latest']);
     });
 });

@@ -44,10 +44,11 @@ terhadap emulator `lacak-api35`/`lacak-api36` yang sudah ada, lalu melaporkan ha
 - `NetworkCallback` untuk reconnect cepat saat jaringan pulih
 - Heartbeat WS periodik + WorkManager HTTPS fallback (PHASE 11)
 - Lock/Unlock (PHASE 13): `LockActivity` + `LockStateStore`, Device Owner-aware (`startLockTask()`/`stopLockTask()` resmi), fallback jujur kalau bukan managed device — ack `RECEIVED→EXECUTING→SUCCESS/FAILED` ke `device.command.ack`
+- Location (PHASE 15): `LocationCapability.requestLastKnown()` — HANYA last-known (bukan fix GPS baru, §70), cek permission `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` jujur, `source` selalu dilaporkan `LAST_KNOWN` (bukan diklaim real-time GPS)
 
-## Yang BELUM ada (menyusul PHASE 14+)
+## Yang BELUM ada (menyusul PHASE 16+)
 
-- OTP unlock (PHASE 14), location, camera capability execution (PHASE 15-16)
+- Camera capability execution (PHASE 16)
 - Update strategy (§51)
 
 ## Keterbatasan Android yang didokumentasikan (§68-70)

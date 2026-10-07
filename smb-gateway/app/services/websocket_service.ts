@@ -10,6 +10,7 @@ import DeviceCommand from '#models/device_command'
 import DeviceCommandLog from '#models/device_command_log'
 import DeviceCredential from '#models/device_credential'
 import DeviceHeartbeat from '#models/device_heartbeat'
+import DeviceLocation from '#models/device_location'
 import DeviceSession from '#models/device_session'
 import { DEGRADED_THRESHOLD_SECONDS, resolveDeviceStatus } from '#services/device_status_resolver'
 import { isValidDeviceAckTransition } from '#services/command_status_transition'
@@ -56,6 +57,15 @@ interface DeviceCommandAckPayload {
   command_id?: string
   status?: string
   failure_reason?: string | null
+  /** §25/§26: hasil LOCATION_REQUEST dibawa di ack SUCCESS — tidak ada event terpisah,
+   * supaya tetap tunduk pada state-machine & validasi anti wrong-device yang sama. */
+  result?: {
+    latitude?: number
+    longitude?: number
+    accuracy?: number | null
+    source?: 'GPS' | 'NETWORK' | 'FUSED' | 'LAST_KNOWN'
+    recorded_at?: string | null
+  }
 }
 
 interface SocketData {
@@ -296,7 +306,7 @@ class WebSocketService {
       return
     }
 
-    await this.#transitionCommand(command, status as any, 'DEVICE', payload.failure_reason ?? null)
+    await this.#transitionCommand(command, status as any, 'DEVICE', payload.failure_reason ?? null, undefined, payload.result)
     logger.info({ commandId, deviceId, status }, 'device.command.ack')
   }
 
@@ -306,6 +316,7 @@ class WebSocketService {
     actor: 'DEVICE' | 'GATEWAY' | 'SYSTEM',
     note: string | null,
     deviceSessionId?: string,
+    result?: DeviceCommandAckPayload['result'],
   ) {
     const fromStatus = command.status
     const now = DateTime.now()
@@ -343,6 +354,31 @@ class WebSocketService {
           .where('id', command.deviceId)
           .update({ status: resolveDeviceStatus(device.lastHeartbeatAt) })
       }
+    }
+
+    // §25/§26: tulis hasil lokasi HANYA kalau device benar2 mengirim result yang valid
+    // (lat/lng ada) — kalau device ack SUCCESS tanpa result (seharusnya tidak terjadi,
+    // tapi kalau terjadi lebih baik tidak menulis baris lokasi palsu, §66).
+    if (
+      toStatus === 'SUCCESS' &&
+      command.commandType === 'LOCATION_REQUEST' &&
+      result?.latitude !== undefined &&
+      result?.longitude !== undefined
+    ) {
+      const receivedAt = DateTime.now()
+      const recordedAt = result.recorded_at ? DateTime.fromISO(result.recorded_at) : receivedAt
+
+      await DeviceLocation.create({
+        id: crypto.randomUUID(),
+        deviceId: command.deviceId,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        accuracy: result.accuracy ?? null,
+        source: result.source ?? 'LAST_KNOWN',
+        recordedAt: recordedAt.isValid ? recordedAt : receivedAt,
+        receivedAt,
+        requestedByCommandId: command.id,
+      })
     }
   }
 

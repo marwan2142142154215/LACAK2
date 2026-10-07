@@ -242,6 +242,16 @@ class DeviceAgentService : Service() {
                 // Hasil SUCCESS/FAILED dikirim oleh lockResultReceiver setelah LockActivity
                 // benar2 mencoba startLockTask() — bukan di sini (§66, belum tentu berhasil).
             }
+            "LOCATION_REQUEST" -> {
+                ack(socket, commandId, "EXECUTING")
+                when (val result = LocationCapability.requestLastKnown(this)) {
+                    is LocationCapability.Result.Success -> ackWithResult(socket, commandId, "SUCCESS", result.payload)
+                    is LocationCapability.Result.Unavailable -> {
+                        AgentLogger.warn(credential.deviceId, "LOCATION_REQUEST unavailable: ${result.reason}", commandId)
+                        ack(socket, commandId, "FAILED", result.reason)
+                    }
+                }
+            }
             "UNLOCK" -> {
                 ack(socket, commandId, "EXECUTING")
                 sendBroadcast(Intent(LockActivity.ACTION_UNLOCK).setPackage(packageName))
@@ -274,6 +284,12 @@ class DeviceAgentService : Service() {
     private fun ack(socket: Socket, commandId: String, status: String, failureReason: String? = null) {
         val payload = JSONObject().put("command_id", commandId).put("status", status)
         if (failureReason != null) payload.put("failure_reason", failureReason)
+        socket.emit("device.command.ack", payload)
+    }
+
+    /** §25/§26 — ack SUCCESS yang membawa hasil (lokasi, dst). */
+    private fun ackWithResult(socket: Socket, commandId: String, status: String, result: JSONObject) {
+        val payload = JSONObject().put("command_id", commandId).put("status", status).put("result", result)
         socket.emit("device.command.ack", payload)
     }
 

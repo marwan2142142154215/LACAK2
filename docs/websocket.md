@@ -43,7 +43,7 @@ Alur verifikasi:
 | `device.heartbeat.ack` | server→client | `{accepted, status, server_received_at}` | Balasan heartbeat — `status` dihitung server dari `DeviceStatusResolver` (identik dengan versi PHP di smb-api, lihat `app/services/device_status_resolver.ts`) |
 
 | `device.command.created` | server→room `device:{id}` | `{command_id, command_type, payload, expires_at}` | §19 — command dikirim setelah Laravel membuat row & memberi tahu AdonisJS via internal API |
-| `device.command.ack` | client→server | `{command_id, status, failure_reason?}` | §20 — device melaporkan progres (`DELIVERED`→`RECEIVED`→`EXECUTING`→`SUCCESS`/`FAILED`). Tidak ada balasan langsung; status baru terlihat lewat command history API |
+| `device.command.ack` | client→server | `{command_id, status, failure_reason?, result?}` | §20 — device melaporkan progres (`DELIVERED`→`RECEIVED`→`EXECUTING`→`SUCCESS`/`FAILED`). `result` (PHASE 15, `{latitude, longitude, accuracy, source, recorded_at}`) hanya diproses untuk `LOCATION_REQUEST` yang `SUCCESS` — ditulis ke `device_locations`. Tidak ada balasan langsung ke device; status baru terlihat lewat command history API |
 
 ### Command broker (PHASE 12, §19-22)
 
