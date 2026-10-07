@@ -63,6 +63,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by((string) $request->route('device').'|'.$request->ip());
         });
 
+        // §17/§57: percobaan registrasi device dibatasi per-IP — endpoint ini PUBLIK
+        // (device belum punya token), jadi satu-satunya pelindung dari brute-force
+        // kode registrasi adalah rate limit ini + kode yang short-lived & high-entropy.
+        RateLimiter::for('device-registration', function ($request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
         // API umum per user/device yang sudah terautentikasi.
         RateLimiter::for('api', function ($request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());

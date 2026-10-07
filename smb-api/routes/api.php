@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
+use App\Http\Controllers\Api\V1\DeviceRegistrationController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\RegistrationCodeController;
 use App\Http\Controllers\Api\V1\SiteController;
 use App\Http\Controllers\Api\V1\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -37,13 +39,23 @@ Route::prefix('v1')->group(function () {
         });
     });
 
+    // PHASE 9 — Device registration (§17/§18). PUBLIK & rate-limited — device belum
+    // punya token Sanctum sampai registrasi sukses. Letaknya di luar group auth:sanctum
+    // dengan sengaja.
+    Route::post('/devices/register', [DeviceRegistrationController::class, 'store'])
+        ->middleware('throttle:device-registration');
+
     // PHASE 6 — RBAC: Sites & Teams, digerbangi permission (§40), bukan hanya sembunyikan menu
     // di FE — authorize() di controller/FormRequest menegakkannya di server (§14).
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::apiResource('sites', SiteController::class);
         Route::apiResource('teams', TeamController::class);
 
-        // Rute device-management lainnya (devices/commands/dst) ditambahkan progresif
-        // di PHASE 9+ (device registration & command broker) — lihat README.md.
+        // PHASE 9 — admin generate registration code (§17/§31 Download Center)
+        Route::get('/devices/registration-codes', [RegistrationCodeController::class, 'index']);
+        Route::post('/devices/registration-codes', [RegistrationCodeController::class, 'store']);
+
+        // Rute device-management lainnya (lock/unlock/location/camera/commands) ditambahkan
+        // progresif di PHASE 12+ (command broker) — lihat README.md.
     });
 });
