@@ -6,10 +6,13 @@ import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import redis from '@adonisjs/redis/services/main'
 import Device from '#models/device'
+import DeviceCommand from '#models/device_command'
+import DeviceCommandLog from '#models/device_command_log'
 import DeviceCredential from '#models/device_credential'
 import DeviceHeartbeat from '#models/device_heartbeat'
 import DeviceSession from '#models/device_session'
 import { DEGRADED_THRESHOLD_SECONDS, resolveDeviceStatus } from '#services/device_status_resolver'
+import { isValidDeviceAckTransition } from '#services/command_status_transition'
 
 /**
  * §43/§44 — Device Gateway WebSocket.
@@ -47,6 +50,12 @@ interface DeviceHeartbeatPayload {
   app_version?: string | null
   android_version?: string | null
   recorded_at?: string | null
+}
+
+interface DeviceCommandAckPayload {
+  command_id?: string
+  status?: string
+  failure_reason?: string | null
 }
 
 interface SocketData {
@@ -153,6 +162,9 @@ class WebSocketService {
       socket.on('device.heartbeat', (payload: DeviceHeartbeatPayload) =>
         this.#handleHeartbeat(socket, deviceId, payload),
       )
+      socket.on('device.command.ack', (payload: DeviceCommandAckPayload) =>
+        this.#handleCommandAck(deviceId, payload),
+      )
     } catch (error) {
       // §70: kalau ada kegagalan SETELAH handshake diterima (misal DB down saat create
       // session), tetap beri sinyal jelas ke client lalu putus — jangan dibiarkan "connected"
@@ -209,6 +221,114 @@ class WebSocketService {
       logger.error({ err: error, deviceId }, 'device.heartbeat.error')
       socket.emit('device.heartbeat.ack', { accepted: false, status: 'UNKNOWN', server_received_at: null })
     }
+  }
+
+  /**
+   * §19 — dipanggil InternalCommandsController (Laravel -> AdonisJS). Push command ke
+   * device HANYA kalau device benar-benar terhubung SEKARANG (room punya anggota) —
+   * kalau tidak, command dibiarkan PENDING di DB; device akan mengambilnya sendiri
+   * saat connect berikutnya (TODO command-sync-on-connect, dicatat sebagai lanjutan,
+   * belum kebutuhan mendesak selama device hampir selalu online).
+   */
+  async dispatchCommand(commandId: string): Promise<{ dispatched: boolean; reason?: string }> {
+    const command = await DeviceCommand.find(commandId)
+    if (!command) return { dispatched: false, reason: 'command_not_found' }
+
+    if (command.status !== 'PENDING') {
+      return { dispatched: false, reason: `command_not_pending (${command.status})` }
+    }
+
+    if (DateTime.now() > command.expiresAt) {
+      await this.#transitionCommand(command, 'EXPIRED', 'GATEWAY', 'Expired sebelum dikirim')
+      return { dispatched: false, reason: 'expired' }
+    }
+
+    const room = this.io.sockets.adapter.rooms.get(`device:${command.deviceId}`)
+    if (!room || room.size === 0) {
+      return { dispatched: false, reason: 'device_not_connected' }
+    }
+
+    // §21: ikat command ke device_session yang SEDANG aktif — validasi anti wrong-device
+    // saat ack datang membandingkan ke sesi ini, bukan device_id saja.
+    const activeSession = [...this.#connections.values()].find((c) => c.deviceId === command.deviceId)
+
+    this.io.to(`device:${command.deviceId}`).emit('device.command.created', {
+      command_id: command.id,
+      command_type: command.commandType,
+      payload: command.payload,
+      expires_at: command.expiresAt.toISO(),
+    })
+
+    await this.#transitionCommand(
+      command,
+      'SENT',
+      'GATEWAY',
+      'Dikirim via WebSocket',
+      activeSession?.deviceSessionId,
+    )
+
+    logger.info({ commandId, deviceId: command.deviceId }, 'device.command.sent')
+
+    return { dispatched: true }
+  }
+
+  async #handleCommandAck(deviceId: string, payload: DeviceCommandAckPayload) {
+    const { command_id: commandId, status } = payload
+    if (!commandId || !status) return
+
+    const command = await DeviceCommand.find(commandId)
+    if (!command) {
+      logger.warn({ commandId, deviceId }, 'device.command.ack: command not found')
+      return
+    }
+
+    // §21 anti wrong-device: command yang di-ack HARUS milik device yang sama dengan
+    // socket yang mengirim ack — socket TIDAK BISA meng-ack command milik device lain
+    // walau tahu command_id-nya (device_id diambil dari socket.data yang sudah
+    // diautentikasi di io.use(), bukan dari payload yang bisa dipalsukan client).
+    if (command.deviceId !== deviceId) {
+      logger.warn({ commandId, deviceId, actualOwner: command.deviceId }, 'device.command.ack REJECTED: wrong device')
+      return
+    }
+
+    if (!isValidDeviceAckTransition(command.status, status as any)) {
+      logger.warn({ commandId, deviceId, from: command.status, to: status }, 'device.command.ack REJECTED: invalid transition')
+      return
+    }
+
+    await this.#transitionCommand(command, status as any, 'DEVICE', payload.failure_reason ?? null)
+    logger.info({ commandId, deviceId, status }, 'device.command.ack')
+  }
+
+  async #transitionCommand(
+    command: DeviceCommand,
+    toStatus: DeviceCommand['status'],
+    actor: 'DEVICE' | 'GATEWAY' | 'SYSTEM',
+    note: string | null,
+    deviceSessionId?: string,
+  ) {
+    const fromStatus = command.status
+    const now = DateTime.now()
+
+    command.status = toStatus
+    if (toStatus === 'SENT') {
+      command.sentAt = now
+      if (deviceSessionId) command.deviceSessionId = deviceSessionId
+    }
+    if (toStatus === 'DELIVERED') command.deliveredAt = now
+    if (toStatus === 'EXECUTING') command.executedAt = now
+    if (['SUCCESS', 'FAILED', 'EXPIRED', 'CANCELLED'].includes(toStatus)) command.completedAt = now
+    if (toStatus === 'FAILED' && note) command.failureReason = note
+    await command.save()
+
+    await DeviceCommandLog.create({
+      id: crypto.randomUUID(),
+      commandId: command.id,
+      fromStatus,
+      toStatus,
+      note,
+      actor,
+    })
   }
 
   async #createSession(deviceId: string): Promise<DeviceSession> {

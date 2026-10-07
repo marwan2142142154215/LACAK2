@@ -8,6 +8,7 @@ import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 const HealthController = () => import('#controllers/health_controller')
 const InternalPingController = () => import('#controllers/internal_ping_controller')
+const InternalCommandsController = () => import('#controllers/internal_commands_controller')
 
 // §52: health check publik (dipakai dashboard/launcher), tidak butuh auth.
 router.get('/health', [HealthController, 'index'])
@@ -22,9 +23,7 @@ router
     router
       .group(() => {
         router.get('/ping', [InternalPingController, 'index'])
-
-        // Rute internal lainnya (command.created, device.lookup, dst) ditambahkan progresif
-        // di PHASE 8 (WebSocket) dan PHASE 12 (command broker) — lihat README.md root.
+        router.post('/commands/dispatch', [InternalCommandsController, 'dispatch'])
       })
       .prefix('/internal')
       .use(middleware.internalAuth())

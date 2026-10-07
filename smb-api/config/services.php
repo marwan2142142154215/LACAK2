@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // §3: smb-gateway (AdonisJS) — service-to-service, bukan credential user.
+    'gateway' => [
+        'url' => env('GATEWAY_INTERNAL_URL', 'http://127.0.0.1:3334'),
+        'secret' => env('GATEWAY_INTERNAL_SECRET'),
+    ],
+
 ];

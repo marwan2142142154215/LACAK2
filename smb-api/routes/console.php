@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // §6: jalan tiap menit supaya device yang diam >90s terdeteksi DEGRADED/OFFLINE
 // tanpa menunggu heartbeat baru. withoutOverlapping supaya tidak dobel kalau run lambat.
 Schedule::command('smb:recompute-device-statuses')->everyMinute()->withoutOverlapping();
+
+// §21: command expired tidak boleh "menggantung" selamanya di status non-terminal.
+Schedule::command('smb:expire-stale-commands')->everyMinute()->withoutOverlapping();

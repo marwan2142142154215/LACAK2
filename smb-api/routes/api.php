@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\V1\Auth\TwoFactorSetupController;
+use App\Http\Controllers\Api\V1\DeviceCommandController;
 use App\Http\Controllers\Api\V1\DeviceHeartbeatController;
 use App\Http\Controllers\Api\V1\DeviceRegistrationController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -61,7 +62,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/devices/registration-codes', [RegistrationCodeController::class, 'index']);
         Route::post('/devices/registration-codes', [RegistrationCodeController::class, 'store']);
 
-        // Rute device-management lainnya (lock/unlock/location/camera/commands) ditambahkan
-        // progresif di PHASE 12+ (command broker) — lihat README.md.
+        // PHASE 12 — command broker (§19-22). Lock/unlock/location/camera-specific
+        // endpoint (§23-27) dibangun di atas ini PHASE 13-16, bukan menggantikannya.
+        Route::get('/devices/{device}/commands', [DeviceCommandController::class, 'index']);
+        Route::post('/devices/{device}/commands', [DeviceCommandController::class, 'store']);
+        Route::get('/devices/{device}/commands/{command}', [DeviceCommandController::class, 'show']);
     });
 });

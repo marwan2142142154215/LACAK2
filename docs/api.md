@@ -58,6 +58,16 @@ Error khusus device registration: `404` kode tidak ditemukan, `422` kode kedaluw
 
 Status (`ONLINE`/`DEGRADED`/`OFFLINE`/`UNKNOWN`) dihitung server-side dari `last_heartbeat_at` (§6) — lihat `App\Services\DeviceStatusResolver`. Command terjadwal `smb:recompute-device-statuses` (tiap menit) menurunkan status device yang berhenti heartbeat tanpa menunggu heartbeat baru masuk.
 
+## Device Commands — command broker (PHASE 12, permission `devices.command`/`devices.view`)
+
+| Method | Path | Keterangan |
+|---|---|---|
+| POST | `/devices/{device}/commands` | `{command_type, payload?, idempotency_key?, expires_in_seconds?}` → command `PENDING`, AdonisJS diberi tahu otomatis. `command_type` ∈ `LOCK,UNLOCK,LOCATION_REQUEST,CAMERA_REQUEST`. Mengirim `idempotency_key` yang sama untuk device yang sama mengembalikan command LAMA (200), bukan membuat baru (§22). |
+| GET | `/devices/{device}/commands` | Riwayat command, paginated (§48) |
+| GET | `/devices/{device}/commands/{command}` | Detail + log transisi status. 404 kalau command bukan milik `{device}` (anti-IDOR) |
+
+Status command: `PENDING→QUEUED→SENT→DELIVERED→RECEIVED→EXECUTING→SUCCESS|FAILED`, atau `EXPIRED`/`CANCELLED` dari status non-terminal manapun. Command terjadwal `smb:expire-stale-commands` (tiap menit) menandai `EXPIRED` command yang lewat `expires_at` tapi belum terminal (§21). Detail lengkap mekanisme anti wrong-device & state machine di `docs/websocket.md`.
+
 ## Health (PHASE 3/4/7)
 
 | Method | Path | Keterangan |
