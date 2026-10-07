@@ -42,11 +42,12 @@ terhadap emulator `lacak-api35`/`lacak-api36` yang sudah ada, lalu melaporkan ha
 - Boot receiver (`BOOT_COMPLETED` + `MY_PACKAGE_REPLACED`) dengan penanganan jujur saat Android menolak start background service (API 31+ restriction)
 - WebSocket via Socket.IO client resmi (`io.socket:socket.io-client`), **bukan** raw OkHttp WebSocket — diverifikasi lewat inspeksi bytecode jar asli karena tidak bisa compile-check di sesi ini (lihat `app/build.gradle.kts` komentar)
 - `NetworkCallback` untuk reconnect cepat saat jaringan pulih
+- Heartbeat WS periodik + WorkManager HTTPS fallback (PHASE 11)
+- Lock/Unlock (PHASE 13): `LockActivity` + `LockStateStore`, Device Owner-aware (`startLockTask()`/`stopLockTask()` resmi), fallback jujur kalau bukan managed device — ack `RECEIVED→EXECUTING→SUCCESS/FAILED` ke `device.command.ack`
 
-## Yang BELUM ada (menyusul PHASE 11+)
+## Yang BELUM ada (menyusul PHASE 14+)
 
-- Heartbeat payload + endpoint Laravel (`DeviceHeartbeatWorker`, WorkManager periodic recovery)
-- Lock/unlock, location, camera capability execution (PHASE 13-16)
+- OTP unlock (PHASE 14), location, camera capability execution (PHASE 15-16)
 - Update strategy (§51)
 
 ## Keterbatasan Android yang didokumentasikan (§68-70)

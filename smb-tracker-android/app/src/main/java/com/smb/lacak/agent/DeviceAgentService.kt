@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
@@ -21,6 +23,7 @@ import com.smb.lacak.BuildConfig
 import com.smb.lacak.R
 import com.smb.lacak.data.security.DeviceCredentialStore
 import com.smb.lacak.data.security.StoredDeviceCredential
+import com.smb.lacak.presentation.LockActivity
 import com.smb.lacak.presentation.MainActivity
 import io.socket.client.IO
 import io.socket.client.Socket
@@ -55,6 +58,7 @@ class DeviceAgentService : Service() {
     private var socket: Socket? = null
     private var heartbeatJob: Job? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var lockResultReceiver: BroadcastReceiver? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -90,12 +94,14 @@ class DeviceAgentService : Service() {
 
         statusStore.setAutoReconnect(true)
         registerNetworkCallback()
+        registerLockResultReceiver()
         connectSocket(credential)
         return START_STICKY
     }
 
     override fun onDestroy() {
         unregisterNetworkCallback()
+        lockResultReceiver?.let { runCatching { unregisterReceiver(it) } }
         disconnectSocket("service_destroyed")
         scope.cancel()
         super.onDestroy()
@@ -155,6 +161,10 @@ class DeviceAgentService : Service() {
                 statusStore.write("DEGRADED", "Server mengabaikan heartbeat; menunggu siklus berikutnya.")
             }
         }
+        newSocket.on("device.command.created") { args ->
+            val data = args.firstOrNull() as? JSONObject ?: return@on
+            handleCommandCreated(newSocket, credential, data)
+        }
         newSocket.on("device.disconnected") { args ->
             val data = args.firstOrNull() as? JSONObject
             statusStore.write("DEGRADED", "Gateway melaporkan sesi putus: ${data?.optString("reason") ?: "tidak diketahui"}.")
@@ -208,6 +218,63 @@ class DeviceAgentService : Service() {
                 delay(HEARTBEAT_INTERVAL_MS)
             }
         }
+    }
+
+    /**
+     * §19/§20 — dispatch command_type ke handler masing-masing. PHASE 13: LOCK/UNLOCK.
+     * LOCATION_REQUEST/CAMERA_REQUEST (PHASE 15/16) akan ditambahkan di sini dengan
+     * pola yang sama — ack RECEIVED dulu, lalu EXECUTING/SUCCESS/FAILED setelah nyata
+     * dikerjakan (§66 — tidak pernah ack SUCCESS sebelum benar-benar berhasil).
+     */
+    private fun handleCommandCreated(socket: Socket, credential: StoredDeviceCredential, data: JSONObject) {
+        val commandId = data.optString("command_id").takeIf { it.isNotBlank() } ?: return
+        val commandType = data.optString("command_type")
+
+        ack(socket, commandId, "RECEIVED")
+        AgentLogger.info(credential.deviceId, "device.command.created: $commandType", commandId)
+
+        when (commandType) {
+            "LOCK" -> {
+                val payload = data.optJSONObject("payload")
+                val message = payload?.optString("message") ?: "Segera kembali ke tempat asal anda"
+                ack(socket, commandId, "EXECUTING")
+                startActivity(LockActivity.lockIntent(this, message, commandId))
+                // Hasil SUCCESS/FAILED dikirim oleh lockResultReceiver setelah LockActivity
+                // benar2 mencoba startLockTask() — bukan di sini (§66, belum tentu berhasil).
+            }
+            "UNLOCK" -> {
+                ack(socket, commandId, "EXECUTING")
+                sendBroadcast(Intent(LockActivity.ACTION_UNLOCK).setPackage(packageName))
+                // §24: UNLOCK idempotent — target state "tidak terkunci" tercapai baik
+                // sebelumnya locked maupun sudah unlocked, jadi SUCCESS langsung di sini valid.
+                LockStateStore.setLocked(this, false)
+                ack(socket, commandId, "SUCCESS")
+            }
+            else -> {
+                ack(socket, commandId, "FAILED", "command_type '$commandType' belum didukung di versi app ini.")
+            }
+        }
+    }
+
+    private fun registerLockResultReceiver() {
+        if (lockResultReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val commandId = intent.getStringExtra(LockActivity.EXTRA_COMMAND_ID) ?: return
+                val success = intent.getBooleanExtra(LockActivity.EXTRA_SUCCESS, false)
+                val reason = intent.getStringExtra(LockActivity.EXTRA_REASON)
+                val current = socket ?: return
+                ack(current, commandId, if (success) "SUCCESS" else "FAILED", reason)
+            }
+        }
+        lockResultReceiver = receiver
+        ContextCompat.registerReceiver(this, receiver, IntentFilter(LockActivity.ACTION_LOCK_RESULT), ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    private fun ack(socket: Socket, commandId: String, status: String, failureReason: String? = null) {
+        val payload = JSONObject().put("command_id", commandId).put("status", status)
+        if (failureReason != null) payload.put("failure_reason", failureReason)
+        socket.emit("device.command.ack", payload)
     }
 
     private fun registerNetworkCallback() {
