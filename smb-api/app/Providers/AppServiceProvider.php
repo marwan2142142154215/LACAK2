@@ -41,7 +41,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // 2FA challenge: percobaan kode dibatasi lebih ketat (anti brute force §56/§57).
-        RateLimiter::for('two-factor', function ($request) {
+        // Nama 'two-factor-login' dipakai sengaja (bukan 'two-factor') — Fortify sendiri
+        // mendaftarkan limiter bawaan bernama 'two-factor' yang memakai session() dan akan
+        // bentrok/dipakai tanpa sengaja oleh route API stateless kita jika nama sama (§57).
+        RateLimiter::for('two-factor-login', function ($request) {
             return Limit::perMinute(5)->by((string) $request->input('login_token').'|'.$request->ip());
         });
 

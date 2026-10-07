@@ -8,7 +8,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
-use Laravel\Fortify\TwoFactorAuthenticatable;
+use Laravel\Fortify\Fortify;
 use Laravel\Fortify\TwoFactorAuthenticationProvider;
 
 class TwoFactorChallengeController extends Controller
@@ -40,7 +40,10 @@ class TwoFactorChallengeController extends Controller
         $verified = false;
 
         if ($request->filled('code')) {
-            $verified = $provider->verify(decrypt($user->two_factor_secret), (string) $request->code);
+            $verified = $provider->verify(
+                Fortify::currentEncrypter()->decrypt($user->two_factor_secret),
+                (string) $request->code,
+            );
         } elseif ($request->filled('recovery_code')) {
             $verified = $this->attemptRecoveryCode($user, (string) $request->recovery_code);
         }

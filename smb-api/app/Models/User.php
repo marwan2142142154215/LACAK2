@@ -55,9 +55,12 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
-            // §39/§53: 2FA secret & recovery codes TIDAK PERNAH plaintext di DB maupun log.
-            'two_factor_secret' => 'encrypted',
-            'two_factor_recovery_codes' => 'encrypted',
+            // §39/§53: 2FA secret & recovery codes TIDAK PERNAH plaintext di DB.
+            // TIDAK di-cast 'encrypted' di sini secara sengaja: trait TwoFactorAuthenticatable
+            // bawaan Fortify (dipakai di bawah) sudah mengenkripsi/mendekripsi kedua kolom ini
+            // sendiri via Fortify::currentEncrypter() pada setiap action (Enable/Confirm/Disable/
+            // GenerateNewRecoveryCodes). Menambah cast 'encrypted' di sini akan membuat
+            // double-encryption (cast mengenkripsi lagi nilai yang sudah dienkripsi Fortify).
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
