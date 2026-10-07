@@ -78,10 +78,10 @@ Route::prefix('v1')->group(function () {
     // sama persis dengan S3 presigned URL (§28), bukan "tanpa auth sama sekali". Device/
     // browser tidak perlu kirim Sanctum token atau device credential untuk endpoint ini.
     Route::put('/devices/media/upload', [DeviceMediaTransferController::class, 'upload'])
-        ->middleware('signed')
+        ->middleware(['signed', 'throttle:device-media-transfer'])
         ->name('devices.media.upload');
     Route::get('/devices/media/download', [DeviceMediaTransferController::class, 'download'])
-        ->middleware('signed')
+        ->middleware(['signed', 'throttle:device-media-transfer'])
         ->name('devices.media.download');
 
     // PHASE 6 — RBAC: Sites & Teams, digerbangi permission (§40), bukan hanya sembunyikan menu

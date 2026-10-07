@@ -98,5 +98,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', function ($request) {
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
         });
+
+        // §44/§110-114: endpoint upload/download storage lokal PUBLIK (dilindungi Laravel
+        // signed URL, bukan Sanctum) — tetap diberi rate limit per-IP sebagai defense in
+        // depth, sama seperti endpoint publik lain (registrasi, OTP, webhook) — bukan
+        // pengganti validasi signature, tapi menahan brute-force/flood sebelum sampai ke
+        // disk I/O.
+        RateLimiter::for('device-media-transfer', function ($request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
     }
 }
