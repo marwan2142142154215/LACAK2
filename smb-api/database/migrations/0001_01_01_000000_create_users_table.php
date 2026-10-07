@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -15,7 +16,10 @@ return new class extends Migration
             // UUID, bukan auto-increment: mencegah user_id ditebak/dienumerasi (anti-IDOR, §58)
             $table->uuid('id')->primary();
             $table->string('name', 100);
-            $table->string('email', 150)->unique();
+            // TANPA ->unique() biasa: constraint unik dibuat sebagai partial index di bawah
+            // (WHERE deleted_at IS NULL) supaya email bisa dipakai ulang setelah user
+            // di-soft-delete — unique() biasa akan terus memblokirnya selamanya (§35).
+            $table->string('email', 150);
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->boolean('is_active')->default(true);
@@ -25,6 +29,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
         });
+
+        DB::statement('CREATE UNIQUE INDEX users_email_unique ON users (email) WHERE deleted_at IS NULL');
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

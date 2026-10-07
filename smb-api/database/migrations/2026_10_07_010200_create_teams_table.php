@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -18,9 +19,11 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['site_id', 'code']);
+            // Unique via partial index (bawah) — bukan ->unique() biasa (alasan sama: soft delete).
             $table->index('name');
         });
+
+        DB::statement('CREATE UNIQUE INDEX teams_site_id_code_unique ON teams (site_id, code) WHERE deleted_at IS NULL');
     }
 
     public function down(): void
