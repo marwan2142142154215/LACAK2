@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "smb-web",
+  "compatibility_date": "2026-10-07",
+  "assets": {
+    "directory": "./dist",
+    // Vue Router pakai createWebHistory() (HTML5 history mode) — tanpa ini, refresh atau
+    // buka link langsung ke rute selain "/" (mis. /devices) akan 404 di Cloudflare.
+    "not_found_handling": "single-page-application"
+  }
+}
