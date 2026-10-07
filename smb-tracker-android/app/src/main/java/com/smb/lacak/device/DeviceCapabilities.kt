@@ -28,6 +28,10 @@ data class DeviceCapabilities(
     val deviceOwner: Boolean,
     val foregroundServiceAvailable: Boolean,
     val notificationPermission: Boolean,
+    // §26/§38 — dilaporkan jujur berdasarkan chipset/Android nyata, bukan diasumsikan true.
+    val bluetoothAvailable: Boolean = false,
+    val bleSupported: Boolean = false,
+    val bleAdvertisingSupported: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("camera_available", cameraAvailable)
@@ -38,6 +42,9 @@ data class DeviceCapabilities(
         .put("device_owner", deviceOwner)
         .put("foreground_service_available", foregroundServiceAvailable)
         .put("notification_permission", notificationPermission)
+        .put("bluetooth_available", bluetoothAvailable)
+        .put("ble_supported", bleSupported)
+        .put("ble_advertising_supported", bleAdvertisingSupported)
 }
 
 object DeviceCapabilitiesReporter {
@@ -48,6 +55,7 @@ object DeviceCapabilitiesReporter {
         val profileOwner = policy.isProfileOwnerApp(packageName)
         val notificationPermission = notificationPermission(context)
         val cameraDirections = availableCameraDirections(context)
+        val bluetoothAdapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter
 
         return DeviceCapabilities(
             cameraAvailable = cameraDirections.isNotEmpty(),
@@ -58,6 +66,12 @@ object DeviceCapabilitiesReporter {
             deviceOwner = deviceOwner,
             foregroundServiceAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationPermission,
             notificationPermission = notificationPermission,
+            // §14/§38: isMultipleAdvertisementSupported() adalah API resmi Android untuk
+            // mengetahui chipset mendukung BLE peripheral/advertising — dilaporkan APA ADANYA,
+            // bukan diasumsikan (§79, banyak device lama/murah tidak mendukung ini).
+            bluetoothAvailable = bluetoothAdapter != null,
+            bleSupported = context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_BLUETOOTH_LE),
+            bleAdvertisingSupported = bluetoothAdapter?.isMultipleAdvertisementSupported == true,
         )
     }
 

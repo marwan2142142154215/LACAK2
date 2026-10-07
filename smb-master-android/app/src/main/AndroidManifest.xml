@@ -1,0 +1,43 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- §14/§38: BLE central (scanner). API<31 WAJIB ACCESS_FINE_LOCATION untuk scan BLE
+         (keterbatasan platform, bukan pilihan desain) — API>=31 pakai BLUETOOTH_SCAN dengan
+         neverForLocation karena Master tidak memakai hasil scan untuk physical location. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+    <application
+        android:name=".SmbMasterApplication"
+        android:allowBackup="false"
+        android:icon="@drawable/ic_master_logo"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SmbMaster"
+        android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".presentation.LoginActivity"
+            android:exported="true"
+            android:theme="@style/Theme.SmbMaster.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".presentation.MainActivity"
+            android:exported="false" />
+    </application>
+</manifest>

@@ -1,0 +1,46 @@
+<resources>
+    <string name="app_name">SMB Master</string>
+    <string name="brand_label">SMB MASTER · KONSOL OPERATOR</string>
+
+    <string name="login_headline">Masuk ke Konsol SMB</string>
+    <string name="login_subtitle">Kontrol penuh armada perangkat terkelola dari genggaman Anda.</string>
+    <string name="label_email">Email</string>
+    <string name="label_password">Kata sandi</string>
+    <string name="button_login">Masuk</string>
+    <string name="two_factor_headline">Verifikasi dua langkah</string>
+    <string name="two_factor_subtitle">Masukkan kode dari aplikasi autentikator Anda.</string>
+    <string name="label_two_factor_code">Kode 6 digit</string>
+    <string name="label_recovery_code">Atau gunakan kode pemulihan</string>
+    <string name="button_verify">Verifikasi</string>
+    <string name="button_back">Kembali</string>
+
+    <string name="overview_total">Total</string>
+    <string name="overview_online">Online</string>
+    <string name="overview_degraded">Terbatas</string>
+    <string name="overview_offline">Offline</string>
+    <string name="overview_locked">Terkunci</string>
+
+    <string name="tab_devices">Perangkat</string>
+    <string name="tab_ble_radar">Radar BLE</string>
+
+    <string name="search_hint">Cari nama perangkat…</string>
+    <string name="empty_devices_title">Belum ada perangkat</string>
+    <string name="empty_devices_subtitle">Perangkat yang terdaftar pada site/team Anda akan muncul di sini.</string>
+
+    <string name="action_lock">Kunci</string>
+    <string name="action_unlock">Buka kunci</string>
+    <string name="action_location">Minta lokasi</string>
+    <string name="action_logout">Keluar</string>
+
+    <string name="ble_disabled_title">Bluetooth nonaktif</string>
+    <string name="ble_disabled_subtitle">Aktifkan Bluetooth untuk memindai perangkat SMB Lacak di sekitar Anda.</string>
+    <string name="ble_permission_title">Izin diperlukan</string>
+    <string name="ble_permission_subtitle">SMB Master memerlukan izin Bluetooth/Lokasi untuk memindai perangkat terdekat.</string>
+    <string name="ble_grant_permission">Berikan izin</string>
+    <string name="ble_scanning_title">Memindai…</string>
+    <string name="ble_empty_title">Belum ada perangkat terdeteksi</string>
+    <string name="ble_empty_subtitle">Perkiraan jarak, bukan jarak absolut — hasil dapat berubah karena lingkungan fisik.</string>
+    <string name="ble_distance_label">Perkiraan jarak</string>
+
+    <string name="error_generic">Terjadi kesalahan. Coba lagi.</string>
+</resources>

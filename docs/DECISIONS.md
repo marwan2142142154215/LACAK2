@@ -4,6 +4,28 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-007 — SMB Master dibangun sebagai project Android independen; BLE identitas pakai ephemeral ID (belum GATT challenge/response)
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 19
+**Status:** Terbuka — radio BLE fisik & server storage lokal butuh tindak lanjut pemilik proyek.
+
+### Konteks
+PHASE 19 menambahkan `smb-master-android` (SMB Master, `com.smb.master`) dan fitur BLE proximity (§14-17 revisi prompt): Master sebagai BLE central/scanner, Lacak sebagai BLE peripheral/advertiser. Dua keputusan diambil:
+
+1. **Project Android terpisah, bukan Gradle multi-module.** `smb-master-android` dan `smb-tracker-android` adalah dua aplikasi Android independen (applicationId berbeda, target pengguna berbeda — operator vs device terkelola) sesuai §81 project structure asli. Konstanta protokol BLE (`BleProximityProtocol`) karena itu DIDUPLIKASI secara sengaja di kedua project (didokumentasikan di `docs/ble.md`) — alternatif (Gradle module bersama) akan mengubah struktur project secara signifikan tanpa manfaat besar untuk 3 konstanta.
+2. **Identitas BLE baseline = ephemeral identifier acak (16 byte, dirotasi 15 menit), BUKAN GATT challenge/response kriptografis.** §16 mewajibkan "tidak broadcast secret" (dipenuhi — ephemeral ID bukan secret, tidak bisa dipakai untuk impersonate device) dan HANYA menyebut challenge/response sebagai "jika melakukan connection-level verification" (kondisional, bukan wajib). Implementasi penuh butuh GATT server di Lacak + GATT client di Master + protokol kripto tambahan — scope signifikan di luar baseline proximity/discovery yang diminta. Didokumentasikan sebagai keterbatasan eksplisit di `docs/ble.md`, bukan diklaim sebagai "identitas terverifikasi".
+
+### Keputusan tambahan — storage & server: perangkat milik pemilik produk, bukan cloud
+Pemilik produk meminta server (smb-server-launcher) dan storage media berjalan di **perangkat miliknya sendiri**, bukan DigitalOcean Spaces/cloud pihak ketiga. Ini SELARAS dengan §110-114 revisi prompt (LOCAL STORAGE MODE sebagai default fase awal, storage abstraction `StorageService` dengan `LocalStorageDriver`) — PHASE 16 (Camera) yang sudah dibangun sebelumnya memakai presigned URL DigitalOcean Spaces secara langsung tanpa lapisan abstraksi; ini akan di-refactor jadi `LocalStorageDriver` sebagai default, `SpacesStorageDriver` tetap ada sebagai opsi masa depan (tidak dihapus, hanya bukan default).
+
+### Dampak
+- `docs/api.md` perlu update path baru (`/devices/{device}/media` upload lewat server lokal, bukan presigned Spaces URL) — dikerjakan sebagai follow-up langsung setelah entri ini.
+- Tidak ada perubahan pada command broker/lock/unlock/location — hanya lapisan storage untuk camera/media yang terdampak.
+- Radio BLE fisik (Master↔Lacak lewat Bluetooth sungguhan) dan build/test fisik Android (DEC-003) masih sama-sama menunggu verifikasi pemilik proyek di perangkat nyata — TIDAK diklaim "sudah bekerja" di sesi ini (§84/§88).
+
+---
+
 ## DEC-005 — Sanctum `statefulApi()` dihapus dari `bootstrap/app.php`
 
 **Tanggal:** 2026-10-07

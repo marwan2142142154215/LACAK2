@@ -1,0 +1,19 @@
+<resources>
+    <color name="smb_navy">#0F1E33</color>
+    <color name="smb_navy_elevated">#162C47</color>
+    <color name="smb_blue">#2563EB</color>
+    <color name="smb_blue_soft">#E8EFFE</color>
+    <color name="smb_green">#138A5B</color>
+    <color name="smb_green_soft">#E3F6EE</color>
+    <color name="smb_amber">#B45309</color>
+    <color name="smb_amber_soft">#FDF1E0</color>
+    <color name="smb_red">#B42318</color>
+    <color name="smb_red_soft">#FDE9E7</color>
+    <color name="smb_slate">#68778C</color>
+    <color name="smb_slate_soft">#EEF1F6</color>
+    <color name="smb_surface">#F4F7FB</color>
+    <color name="smb_surface_card">#FFFFFF</color>
+    <color name="smb_stroke">#E4EAF2</color>
+    <color name="smb_ink">#17263C</color>
+    <color name="smb_ink_muted">#5D6B7F</color>
+</resources>

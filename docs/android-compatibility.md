@@ -50,6 +50,14 @@ terhadap emulator `lacak-api35`/`lacak-api36` yang sudah ada, lalu melaporkan ha
 ## Status PHASE 10-16: semua kode Android SIAP tapi BELUM pernah di-build/dijalankan fisik di sesi mana pun (DEC-003 masih berlaku untuk seluruh kode Kotlin yang ditulis sejak itu, termasuk Camera2 — kompleksitas tertinggi di antara semua fitur Android, paling butuh verifikasi `gradlew` + device/emulator nyata sebelum diklaim bekerja).
 - Update strategy (§51)
 
+## PHASE 19 — SMB Master (BLE central) + BLE peripheral di SMB Lacak
+
+- `smb-master-android` (project Android baru, `com.smb.master`): login+2FA (endpoint admin sama dengan SMB Web), device list+search+overview, command center (lock/unlock/request lokasi) lewat endpoint command broker yang sama dengan SMB Web — **tidak ada jalur Master→Lacak langsung**, semua lewat `smb-api`→AdonisJS (§18)
+- BLE radar nyata (§14/§15): `BleCentralScanner` (Master, central/scanner) dan `BlePeripheralAdvertiser` (Lacak, peripheral/advertiser) memakai `android.bluetooth.le.*` API platform resmi — bukan simulasi RSSI (§79/§88). Protokol lengkap: `docs/ble.md`
+- Smoothing RSSI (EMA) dan klasifikasi proximity (`RssiSmoother`, `ProximityClassifier`) adalah **pure Kotlin** tanpa dependency Android — diuji dengan JVM unit test biasa (`RssiSmootherTest`, `ProximityClassifierTest`), lolos tanpa butuh emulator
+- **Keterbatasan jujur yang belum terverifikasi:** radio BLE nyata (Master benar-benar menemukan Lacak lewat Bluetooth fisik, end-to-end) BELUM bisa diuji di lingkungan sesi manapun sejauh ini — tidak ada device/emulator dengan radio BLE fisik yang tersedia untuk sesi otomatis. DEC-003 (build-tooling) + keterbatasan radio BLE dicatat sebagai item verifikasi wajib sebelum PHASE 19 dinyatakan DONE (§78 Definition of Done)
+- Identitas BLE: Lacak advertise ephemeral identifier 16-byte acak yang dirotasi tiap 15 menit, BUKAN device_id (§16). Pemetaan ephemeral→device_id terverifikasi kriptografis (GATT challenge/response) **belum diimplementasikan** — didokumentasikan sebagai batasan di `docs/ble.md`, bukan fitur yang diklaim ada
+
 ## Keterbatasan Android yang didokumentasikan (§68-70)
 
 | Keterbatasan | Alasan | Permission/policy dibutuhkan | Fallback |

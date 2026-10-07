@@ -21,6 +21,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.smb.lacak.BuildConfig
 import com.smb.lacak.R
+import com.smb.lacak.ble.BleAdvertiseState
+import com.smb.lacak.ble.BlePeripheralAdvertiser
+import com.smb.lacak.ble.BleProximityProtocol
 import com.smb.lacak.data.security.DeviceCredentialStore
 import com.smb.lacak.data.security.StoredDeviceCredential
 import com.smb.lacak.presentation.LockActivity
@@ -54,9 +57,11 @@ import java.net.URI
 class DeviceAgentService : Service() {
     private val credentialStore by lazy { DeviceCredentialStore(this) }
     private val statusStore by lazy { AgentStatusStore(this) }
+    private val bleAdvertiser by lazy { BlePeripheralAdvertiser(this) }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var socket: Socket? = null
     private var heartbeatJob: Job? = null
+    private var bleRotationJob: Job? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var lockResultReceiver: BroadcastReceiver? = null
 
@@ -96,6 +101,7 @@ class DeviceAgentService : Service() {
         registerNetworkCallback()
         registerLockResultReceiver()
         connectSocket(credential)
+        startBleAdvertising(credential.deviceId)
         return START_STICKY
     }
 
@@ -103,8 +109,37 @@ class DeviceAgentService : Service() {
         unregisterNetworkCallback()
         lockResultReceiver?.let { runCatching { unregisterReceiver(it) } }
         disconnectSocket("service_destroyed")
+        stopBleAdvertising()
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * §14 — Lacak sebagai BLE peripheral/advertiser, berjalan selama agent aktif. Rotasi
+     * ephemeral identifier periodik (§16/§73) dijalankan sebagai job terpisah supaya tidak
+     * terikat lifecycle socket (BLE harus tetap jalan walau WebSocket sedang reconnect, §65).
+     */
+    private fun startBleAdvertising(deviceId: String) {
+        bleAdvertiser.startAdvertising()
+        when (val state = bleAdvertiser.state.value) {
+            is BleAdvertiseState.Error -> AgentLogger.warn(deviceId, "BLE advertise gagal: ${state.reason}")
+            is BleAdvertiseState.Unsupported -> AgentLogger.info(deviceId, "Chipset tidak mendukung BLE advertising — fitur radar BLE tidak tersedia di device ini (§79, jujur, bukan fake).")
+            is BleAdvertiseState.PermissionRequired -> AgentLogger.info(deviceId, "Izin Bluetooth belum diberikan — BLE advertising ditunda.")
+            else -> {}
+        }
+        bleRotationJob?.cancel()
+        bleRotationJob = scope.launch {
+            while (isActive) {
+                delay(BleProximityProtocol.EPHEMERAL_ROTATION_INTERVAL_MS)
+                bleAdvertiser.rotateIfDue()
+            }
+        }
+    }
+
+    private fun stopBleAdvertising() {
+        bleRotationJob?.cancel()
+        bleRotationJob = null
+        bleAdvertiser.stopAdvertising()
     }
 
     private fun startInForeground() {
