@@ -1,0 +1,44 @@
+# Environment & secrets — JANGAN COMMIT (lihat docs/DECISIONS.md, §39/§63)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+secrets/
+
+# PHP / Laravel
+smb-api/vendor/
+smb-api/node_modules/
+smb-api/storage/*.key
+smb-api/bootstrap/cache/*.php
+smb-api/.phpunit.cache
+
+# Node / AdonisJS / Vue
+node_modules/
+smb-gateway/build/
+smb-gateway/tmp/
+smb-web/dist/
+smb-web/.vite/
+
+# Android / Gradle
+*.apk
+*.aab
+.gradle/
+smb-master-android/build/
+smb-tracker-android/build/
+smb-master-android/app/build/
+smb-tracker-android/app/build/
+local.properties
+*.iml
+.idea/
+
+# Cloudflare
+cloudflare/*.json
+!cloudflare/config.example.yml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
