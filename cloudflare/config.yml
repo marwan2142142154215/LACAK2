@@ -4,8 +4,12 @@
 # `cloudflared tunnel create smb-platform` (lihat README.md di folder ini) — JANGAN commit
 # versi yang sudah terisi tunnel ID/credential path asli ke Git.
 
-tunnel: <ISI_TUNNEL_ID_DARI_CLOUDFLARED_TUNNEL_CREATE>
-credentials-file: <PATH_KE_FILE_JSON_CREDENTIAL>
+tunnel: 016877bc-4115-4700-9e16-0ad256e82d64
+# Path file credential JSON ADA DI PC ANDA (dihasilkan `cloudflared tunnel login` +
+# `cloudflared tunnel create`, atau via token connector dashboard — lihat README.md
+# folder ini). File itu TIDAK PERNAH dikirim ke mana pun termasuk sesi ini — isi path-nya
+# sendiri di PC Anda sebelum menjalankan `cloudflared tunnel run`.
+credentials-file: <PATH_KE_FILE_JSON_CREDENTIAL_DI_PC_ANDA>
 
 # §44: origin server TIDAK perlu sertifikat TLS sendiri untuk traffic dari Cloudflare —
 # tunnel sudah end-to-end encrypted. Ingress rule di bawah meneruskan ke service LOKAL
