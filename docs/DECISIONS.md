@@ -4,6 +4,37 @@ Catatan keputusan arsitektur/teknis yang mengubah atau mengklarifikasi requireme
 
 ---
 
+## DEC-008 — Logic BLE/reconnect murni diverifikasi NYATA (compile+run di luar Gradle/AGP); build APK penuh tetap terblokir (alasan baru, bukan DEC-003 lama)
+
+**Tanggal:** 2026-10-07
+**Fase:** PHASE 19 (tindak lanjut)
+**Status:** FINAL untuk sesi ini — build APK penuh butuh mesin dengan akses `dl.google.com` (mesin pemilik produk).
+
+### Konteks
+Sesi ini mencoba benar-benar memverifikasi kode Android (bukan cuma menulisnya), per permintaan eksplisit pemilik produk. Diselidiki:
+
+1. Tidak ada Android SDK terpasang di container sesi ini (`$ANDROID_HOME` kosong, tidak ada `android.jar` di mana pun di filesystem).
+2. Mencoba memasang SDK lewat `sdkmanager`/`dl.google.com` → **ditolak kebijakan egress organisasi** (`403` dari proxy sesi, bukan error jaringan transien — dikonfirmasi lewat `curl` langsung ke `dl.google.com`, dan proxy README eksplisit bilang "do not retry or route around it" untuk 403/407 kebijakan). Ini BUKAN masalah yang bisa diperbaiki dari dalam sesi — Android SDK hanya didistribusikan oleh Google lewat domain itu, tidak ada mirror resmi di Maven Central/registry lain yang di-allowlist proxy ini.
+3. Karena itu, `./gradlew assembleDebug` dan `./gradlew testDebugUnitTest` (yang butuh `android.jar` dari `compileSdk`, dipakai AGP bahkan untuk unit test JVM di modul `app`) **tetap tidak bisa dijalankan** di sesi ini — DEC-003 masih berlaku, dengan akar masalah yang berbeda dari sesi sebelumnya (dulu: loopback TCP Gradle di Windows; sekarang: kebijakan egress jaringan Linux container).
+
+### Apa yang BENAR-BENAR berhasil diverifikasi (bukan klaim kosong)
+Logic murni (tanpa dependency `android.*` apa pun) di-copy ke project Gradle JVM standalone terpisah (`org.jetbrains.kotlin.jvm`, bukan AGP, memakai JUnit4 dari Maven Central — yang TIDAK diblokir proxy) dan benar-benar di-compile + dijalankan:
+
+- `RssiSmoother.kt` + `RssiSmootherTest.kt` (smb-master-android) — 5 test PASSED
+- `ProximityClassifier.kt` + `ProximityClassifierTest.kt` (smb-master-android) — 7 test PASSED
+- `DeviceReconnectPolicy.kt` + `DeviceReconnectPolicyTest.kt` (smb-tracker-android) — 3 test PASSED
+
+Total **15/15 PASSED**, nyata dijalankan, bukan dilaporkan begitu saja. Proyek verifikasi ini dibuat di `/tmp` (scratch, di luar repo) dan dihapus setelah selesai — tidak masuk git karena bukan bagian arsitektur produk, murni alat verifikasi sesi ini.
+
+### Yang TIDAK bisa diverifikasi di sesi ini (dan kenapa)
+- Compile penuh modul `app` (kode yang memang memakai `android.bluetooth.le.*`, `android.hardware.camera2.*`, dll) — butuh `android.jar`, terblokir egress.
+- BLE radio fisik Master↔Lacak, instrumented test (`androidTest`), instalasi APK ke device/emulator — butuh hardware fisik atau emulator dengan SDK, keduanya tidak tersedia di container ini.
+
+### Rekomendasi ke pemilik produk
+Jalankan `./gradlew assembleDebug && ./gradlew testDebugUnitTest` untuk `smb-master-android` DAN `smb-tracker-android` di mesin/laptop Anda sendiri (yang punya akses internet biasa ke `dl.google.com` dan Android Studio/SDK terpasang) — sejalan dengan keputusan "server & storage pakai perangkat Anda sendiri" (lihat DEC-007). Kalau ada compile error nyata yang muncul di sana, laporkan baris errornya — saya bisa perbaiki tanpa perlu menjalankan build itu sendiri, selama errornya ditunjukkan verbatim.
+
+---
+
 ## DEC-007 — SMB Master dibangun sebagai project Android independen; BLE identitas pakai ephemeral ID (belum GATT challenge/response)
 
 **Tanggal:** 2026-10-07
